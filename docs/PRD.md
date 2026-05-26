@@ -185,7 +185,7 @@ YackBang은 이 정보를 누구나 쉽게 확인할 수 있도록 풀어서 전
 | 언어 | TypeScript | 타입 안정성 |
 | 스타일 | Tailwind CSS v4 + shadcn/ui | 빠른 UI 구성, 일관된 디자인 |
 | HTTP | axios | 식약처 API 호출 |
-| 크롤링 | cheerio + axios | 의약품 안전나라 포장 이미지 수집 |
+| DB | Supabase (PostgreSQL) | DUR 전체 데이터 저장 및 성분명 검색 |
 | 캐싱 | Next.js `unstable_cache` | 서버 레벨 캐싱, 요청 간 공유 |
 | AI 변환 | Claude Haiku (Anthropic API) | 전문용어 → 쉬운 말 변환 |
 | 배포 | Vercel | Next.js 궁합, 무료 플랜으로 포트폴리오 운영 |
@@ -197,24 +197,30 @@ YackBang은 이 정보를 누구나 쉽게 확인할 수 있도록 풀어서 전
 ## 6. 아키텍처
 
 ```
-[클라이언트 (브라우저)]
-        ↓ 검색어 입력
+[클라이언트 검색 요청]
+        ↓
 [Next.js API Route]
         ↓
-   캐시 확인 (약품 ID 기준)
+   캐시 확인 (검색어 기준)
     ├─ HIT  → 저장된 결과 바로 반환
-    └─ MISS → 식약처 API 호출 (병용금기 + 이미지)
-                   ↓
-         포장 이미지 없으면 의약품 안전나라 크롤링
-                   ↓
-              JS 배열/Map으로 데이터 처리
-                   ↓
-              규칙 기반 1차 용어 치환
-                   ↓
-              Claude Haiku — 전문용어 → 쉬운 말
-                   ↓
-         변환 결과 캐시 저장 (TTL: 7일 / 이미지: 30일)
-                   ↓
+    └─ MISS
+         ↓
+   [병렬 호출]
+    ├─ 허가정보 API (item_name) → ITEM_SEQ, ITEM_INGR_NAME, BIG_PRDT_IMG_URL
+    └─ 낱알이미지 API (item_name) → ITEM_IMAGE
+         ↓
+   영문 성분명 → 한글 성분명 변환
+   (예: "Acetaminophen" → "아세트아미노펜")
+         ↓
+   Supabase 쿼리
+   SELECT * FROM dur_prohibition
+   WHERE ingr_kor_name = '아세트아미노펜'
+   → 병용금기 목록, 임부금기 여부
+         ↓
+   Claude Haiku — PROHBT_CONTENT 전문용어 → 쉬운 말
+         ↓
+   결과 캐시 저장 (TTL: 7일)
+         ↓
 [클라이언트에 응답 반환]
 ```
 
@@ -269,28 +275,36 @@ YackBang은 이 정보를 누구나 쉽게 확인할 수 있도록 풀어서 전
 
 ## 8. 데이터 소스
 
-### 식약처 DUR API (data.go.kr)
+### 식약처 공공데이터 API (data.go.kr)
 
-| API | 용도 |
-|---|---|
-| `getDURPrdlstInfoList03` | 의약품 목록 검색 (제품명/성분명) |
-| `getUsjntTabooInfoList03` | 병용금기 정보 조회 |
-| `getPwnmTabooInfoList03` | 임부 금기 정보 |
-| `getSeniorTabooInfoList03` | 고령자 주의 정보 |
-| `getDrugImgInfoList02` | 낱알 이미지 URL 조회 |
+실물 테스트로 확인된 API만 기재한다. 세부 명세는 `docs/API.md` 참고.
 
-- 인증 방식: 공공데이터포털 서비스키 (URL 인코딩)
-- 요청 제한: 1일 10,000건 (무료)
-- API 키 발급: [data.go.kr](https://www.data.go.kr)
+| 서비스 | 엔드포인트 | 용도 | 검색 파라미터 |
+|---|---|---|---|
+| 의약품 허가정보 | `DrugPrdtPrmsnInfoService07` | 제품명 검색, 박스 이미지 | `item_name` |
+| 낱알 이미지 | `MdcinGrnIdntfcInfoService03` | 낱알 사진 URL | `item_name` |
+| DUR 병용금기 | `DURPrdlstInfoService03` | 병용금기 데이터 (전체) | 필터 불가 |
+| DUR 임부금기 | `DURPrdlstInfoService03` | 임부금기 데이터 (전체) | 필터 불가 |
 
-### 크롤링 — 포장 이미지
+- 인증 방식: 공공데이터포털 서비스키 (`serviceKey` 쿼리 파라미터)
+- ⚠️ 검색 파라미터명: `item_name` (언더스코어) — `itemName` 아님
+- 요청 제한: 1일 10,000건 (공통)
 
-- 대상: 의약품 안전나라 (nedrug.mfds.go.kr) — 식약처 산하 공식 포털
-- 방식: `itemSeq` 기반 URL 패턴으로 해당 약품 페이지 접근 후 이미지 추출
-- 민간 쇼핑몰/제약사 사이트는 이용약관 문제 소지로 제외
-- 크롤링 전 robots.txt 확인 필수
+### 포장(박스) 이미지
 
-> 식약처 API 응답에 포장 이미지 필드가 포함되어 있을 경우 크롤링 없이 API로 대체한다. 실물 데이터 확인 후 확정.
+허가정보 API의 `BIG_PRDT_IMG_URL` 필드로 직접 제공된다.  
+단, 모든 약품에 이미지가 있지 않으므로 없을 경우 낱알 이미지 → 아이콘 순서로 fallback.  
+**크롤링 불필요** (당초 계획 변경).
+
+### DUR 데이터 처리 방식
+
+DUR API는 텍스트 필터링이 불가능(실물 테스트 확인)하므로,  
+전체 데이터를 **Supabase(PostgreSQL)에 임포트하여 SQL 쿼리**로 처리한다.
+
+- 데이터 출처: data.go.kr "의약품안전사용서비스(DUR) 의약품 목록" 파일데이터
+- 병용금기 총 811,620건 / 임부금기 총 16,093건
+- Supabase 무료 플랜 500MB 내 수용 가능
+- 갱신 주기: 월 1회 수동 업데이트 (DUR 데이터는 자주 바뀌지 않음)
 
 ---
 
