@@ -1,0 +1,88 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.625rem 0.3125rem 0.75rem;
+  border-radius: var(--yb-radius-full);
+  border: 1.5px solid var(--yb-border-strong);
+  background-color: var(--yb-surface);
+  transition: border-color var(--yb-transition), background-color var(--yb-transition);
+  max-width: 100%;
+}
+
+/* 기준 약 (첫 번째) */
+.chip.reference {
+  border-color: var(--yb-brand);
+  background-color: var(--yb-brand-light);
+}
+
+/* 상태별 색상 (결과 나온 이후) */
+.chip.safe {
+  border-color: var(--yb-safe-border);
+  background-color: var(--yb-safe-bg);
+}
+
+.chip.danger {
+  border-color: var(--yb-danger-border);
+  background-color: var(--yb-danger-bg);
+}
+
+.chip.warning {
+  border-color: var(--yb-warning-border);
+  background-color: var(--yb-warning-bg);
+}
+
+/* ── 내부 레이아웃 ── */
+.badge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: var(--yb-radius-full);
+  background-color: var(--yb-brand);
+  color: #fff;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.chip.danger .badge  { background-color: var(--yb-danger); }
+.chip.warning .badge { background-color: var(--yb-warning); }
+.chip.safe .badge    { background-color: var(--yb-safe); }
+
+.name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--yb-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.chip.reference .name { color: var(--yb-brand-text); }
+.chip.danger .name    { color: var(--yb-danger-text); }
+.chip.warning .name   { color: var(--yb-warning-text); }
+.chip.safe .name      { color: var(--yb-safe-text); }
+
+.removeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--yb-text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color var(--yb-transition), background-color var(--yb-transition);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.removeBtn:hover {
+  color: var(--yb-danger-text);
+  background-color: var(--yb-danger-bg);
+}

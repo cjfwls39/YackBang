@@ -1,0 +1,87 @@
+.card {
+  background-color: var(--yb-surface);
+  border: 1px solid var(--yb-border);
+  border-radius: var(--yb-radius-md);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: var(--yb-shadow-sm);
+}
+
+/* ── 약 이미지 ── */
+.imageWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--yb-radius-sm);
+  border: 1px solid var(--yb-border);
+  background-color: var(--yb-surface-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.imageFallback {
+  font-size: 2rem;
+}
+
+/* ── 약 정보 텍스트 ── */
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nameLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--yb-text-primary);
+  line-height: 1.35;
+}
+
+.typeBadge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.4rem;
+  border-radius: var(--yb-radius-full);
+  border: 1px solid var(--yb-border);
+  background-color: var(--yb-surface-hover);
+  color: var(--yb-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.typeBadge.otc {
+  background-color: var(--yb-brand-light);
+  color: var(--yb-brand-text);
+  border-color: var(--yb-brand);
+}
+
+.ingr {
+  font-size: 0.8125rem;
+  color: var(--yb-brand-dark);
+  font-weight: 600;
+}
+
+.entp {
+  font-size: 0.75rem;
+  color: var(--yb-text-muted);
+}

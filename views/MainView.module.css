@@ -1,0 +1,65 @@
+/* ────────────────────────────────────────
+   최상위 레이아웃
+   Header (fixed) + content + Disclaimer (fixed)
+   ──────────────────────────────────────── */
+
+.root {
+  min-height: 100dvh;
+}
+
+/* Header(fixed) + Disclaimer(fixed, 헤더 아래) 두 개 높이만큼 패딩 */
+.content {
+  padding-top: calc(var(--yb-header-height) + var(--yb-disclaimer-height));
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 모바일: 세로 스택 ── */
+.panels {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── PC (768px 이상): 좌/우 분할 ── */
+@media (min-width: 768px) {
+  .content {
+    overflow: hidden;
+    height: 100dvh;
+    /* padding-top은 모바일과 동일하게 상속 */
+  }
+
+  .panels {
+    flex-direction: row;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  /* 좌측 검색 패널 — 고정 너비 */
+  .leftPanel {
+    width: var(--yb-panel-width);
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1px solid var(--yb-border);
+    height: 100%;
+  }
+
+  /* 우측 결과 패널 — 나머지 공간 */
+  .rightPanel {
+    flex: 1;
+    overflow-y: auto;
+    height: 100%;
+  }
+}
+
+/* ── 모바일 패널 높이 ── */
+@media (max-width: 767px) {
+  .leftPanel {
+    border-bottom: 1px solid var(--yb-border);
+  }
+
+  .rightPanel {
+    min-height: 400px;
+  }
+}
