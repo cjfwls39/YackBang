@@ -195,3 +195,235 @@
   color: var(--yb-warning-text);
   margin: 0;
 }
+
+/* ── 추가 주의사항 (노인/연령/용량 등) ── */
+.cautionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cautionItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  background-color: var(--yb-surface);
+  border: 1px solid var(--yb-border);
+  border-radius: var(--yb-radius-sm);
+}
+
+.cautionIcon {
+  font-size: 1.125rem;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.cautionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.cautionLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--yb-text-muted);
+}
+
+.cautionText {
+  font-size: 0.875rem;
+  color: var(--yb-text-primary);
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* ── 효능중복 / 성분중복 카드 ── */
+.warningCard {
+  background-color: var(--yb-surface);
+  border: 1.5px solid var(--yb-danger-border);
+  border-radius: var(--yb-radius-md);
+  overflow: hidden;
+}
+
+.warningCardOrange {
+  border-color: var(--yb-warning-border);
+}
+
+.warningCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  background-color: var(--yb-danger-bg);
+  border-bottom: 1px solid var(--yb-danger-border);
+  flex-wrap: wrap;
+}
+
+.warningCardOrange .warningCardHeader {
+  background-color: var(--yb-warning-bg);
+  border-bottom-color: var(--yb-warning-border);
+}
+
+.warningBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--yb-danger-text);
+  background-color: var(--yb-danger-border);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--yb-radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.warningBadgeOrange {
+  color: var(--yb-warning-text);
+  background-color: var(--yb-warning-border);
+}
+
+.warningPair {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.warnIngrName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--yb-text-primary);
+}
+
+.warnArrow {
+  font-size: 0.875rem;
+  color: var(--yb-text-muted);
+  flex-shrink: 0;
+}
+
+.warningCardBody {
+  padding: 0.75rem 0.875rem;
+}
+
+.warningText {
+  font-size: 0.875rem;
+  color: var(--yb-text-primary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── e약은요 복약 안내 섹션 ── */
+.easySection {
+  border: 1.5px solid var(--yb-border-strong);
+  border-radius: var(--yb-radius-md);
+  overflow: hidden;
+  background-color: var(--yb-surface);
+}
+
+.easyToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background-color var(--yb-transition);
+}
+
+.easyToggle:hover {
+  background-color: var(--yb-surface-sub);
+}
+
+.easyToggleLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.easyIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.easyTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--yb-text-primary);
+}
+
+.easyBadge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--yb-text-muted);
+  background-color: var(--yb-surface-sub);
+  border: 1px solid var(--yb-border);
+  padding: 0.125rem 0.4rem;
+  border-radius: var(--yb-radius-full);
+  white-space: nowrap;
+}
+
+.easyChevron {
+  font-size: 0.6875rem;
+  color: var(--yb-text-muted);
+  flex-shrink: 0;
+}
+
+.easyBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--yb-border);
+}
+
+.easyItem {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--yb-border);
+}
+
+.easyItem:last-of-type {
+  border-bottom: none;
+}
+
+.easyItemHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+.easyItemLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--yb-text-muted);
+}
+
+.easyItemText {
+  font-size: 0.875rem;
+  color: var(--yb-text-primary);
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.easySource {
+  font-size: 0.6875rem;
+  color: var(--yb-text-muted);
+  padding: 0.625rem 1rem;
+  margin: 0;
+  background-color: var(--yb-surface-sub);
+  border-top: 1px solid var(--yb-border);
+}
