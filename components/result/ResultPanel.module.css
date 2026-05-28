@@ -427,3 +427,93 @@
   background-color: var(--yb-surface-sub);
   border-top: 1px solid var(--yb-border);
 }
+
+/* ── 허가정보 레이블 경고 카드 (심각도별 색상 변형) ── */
+
+/* avoid → 기존 warningCardOrange 재활용, 헤더만 별도 지정 */
+.labelHeaderOrange {
+  background-color: var(--yb-warning-bg);
+  border-bottom-color: var(--yb-warning-border);
+}
+
+/* consult (노란색) */
+.labelWarnCardYellow {
+  border-color: #fde047;
+}
+.labelHeaderYellow {
+  background-color: #fefce8;
+  border-bottom-color: #fde047;
+}
+.labelWarnBadgeYellow {
+  color: #854d0e;
+  background-color: #fef08a;
+}
+
+/* caution (파란색) */
+.labelWarnCardBlue {
+  border-color: #93c5fd;
+}
+.labelHeaderBlue {
+  background-color: #eff6ff;
+  border-bottom-color: #93c5fd;
+}
+.labelWarnBadgeBlue {
+  color: #1d4ed8;
+  background-color: #bfdbfe;
+}
+
+/* 레이블 카드 공통 요소 */
+.labelMatchedNames {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--yb-text-secondary);
+}
+
+.labelSource {
+  font-size: 0.6875rem;
+  color: var(--yb-text-muted);
+  margin: 0.375rem 0 0;
+}
+
+.labelBriefReason {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--yb-text-primary);
+  line-height: 1.6;
+  background-color: var(--yb-surface-sub);
+  border-left: 3px solid var(--yb-border-strong);
+  border-radius: 0 var(--yb-radius-sm) var(--yb-radius-sm) 0;
+  margin-bottom: 0.25rem;
+}
+
+.labelToggleBtn {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--yb-text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.labelToggleBtn:hover {
+  color: var(--yb-text-secondary);
+}
+
+.labelOriginalText {
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--yb-text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  background-color: var(--yb-surface-sub);
+  border: 1px solid var(--yb-border);
+  border-radius: var(--yb-radius-sm);
+}

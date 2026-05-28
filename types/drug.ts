@@ -146,6 +146,33 @@ export interface IngredientOverlapPair {
   overlappingIngredients: string[];  // 겹치는 성분명 (정규화된 소문자)
 }
 
+/** 허가정보 NB_DOC_DATA 기반 경고 심각도
+ * - prohibited : 복용하지 말 것 (금기)
+ * - avoid      : 병용하지 않는 것이 바람직
+ * - consult    : 신중히 투여 / 복용하기 전에 상의할 것
+ * - caution    : 상호작용 주의 (모니터, 감량 등)
+ */
+export type LabelWarningSeverity = "prohibited" | "avoid" | "consult" | "caution";
+
+/** 허가정보 레이블 상호작용 경고
+ *  DUR 병용금기 DB에 없는 케이스를 허가정보 NB_DOC_DATA로 보완
+ */
+export interface LabelWarning {
+  severity: LabelWarningSeverity;
+  /** 허가정보 ARTICLE 제목 (예: "복용하지 말 것") */
+  articleTitle: string;
+  /** 레이블에서 Drug B와 매칭된 성분명·계열명 목록 */
+  matchedNames: string[];
+  /** 왜 같이 먹으면 안 되는지 한 줄 설명 (추출 실패 시 null) */
+  briefReason: string | null;
+  /** 관련 CDATA 원문 (최대 600자) */
+  rawText: string;
+  /** 레이블 주체 약 (이 약의 설명서에서 발견됨) */
+  drugA: SelectedDrug;
+  /** 상대 약 (drugA 레이블에서 언급됨) */
+  drugB: SelectedDrug;
+}
+
 // ────────────────────────────────────────────
 // 결과 화면용 집계 타입
 // ────────────────────────────────────────────
@@ -166,7 +193,7 @@ export interface SingleDrugResult {
 /** 다중 약 병용 조회 결과 (2–5개) */
 export interface MultiDrugResult {
   drugs: SelectedDrug[];
-  /** 병용금기 쌍 목록 */
+  /** 병용금기 쌍 목록 (DUR DB) */
   dangerPairs: Array<{
     drugA: SelectedDrug;
     drugB: SelectedDrug;
@@ -176,6 +203,8 @@ export interface MultiDrugResult {
   efficacyDuplicates: EfficacyDuplicationPair[];
   /** 성분 교집합 쌍 목록 */
   ingredientOverlaps: IngredientOverlapPair[];
+  /** 허가정보 레이블 기반 상호작용 경고 (DUR 미등재 보완) */
+  labelWarnings: LabelWarning[];
   isSafe: boolean;
 }
 

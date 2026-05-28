@@ -10,6 +10,7 @@ import type {
   DurDurationCaution,
   DurTabletSplitCaution,
   EasyDrugInfo,
+  LabelWarning,
 } from "@/types/drug";
 import DrugInfoCard from "./DrugInfoCard";
 import InteractionCard from "./InteractionCard";
@@ -111,6 +112,7 @@ const MOCK_MULTI: MultiDrugResult = {
   ],
   efficacyDuplicates: [],
   ingredientOverlaps: [],
+  labelWarnings: [],
   isSafe: false,
 };
 
@@ -207,6 +209,85 @@ function SingleCautionSections({
             content={c.note ?? "이 약은 분할하거나 씹어 복용하면 안 돼요. 통째로 삼키세요."}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 심각도 설정 ─────────────────────────────────────────────
+const LABEL_SEVERITY_CFG = {
+  prohibited: {
+    icon: "🚫", label: "복용 금지",
+    cardCls: "",            headerCls: "",
+    badgeCls: "",
+    desc: "의 허가정보에서 복용 금지 약물로 명시되어 있어요.",
+  },
+  avoid: {
+    icon: "⚠️", label: "병용 피할 것",
+    cardCls: styles.warningCardOrange, headerCls: styles.labelHeaderOrange,
+    badgeCls: styles.warningBadgeOrange,
+    desc: "의 허가정보에서 병용을 피하도록 권고하고 있어요.",
+  },
+  consult: {
+    icon: "💬", label: "복용 전 상의",
+    cardCls: styles.labelWarnCardYellow, headerCls: styles.labelHeaderYellow,
+    badgeCls: styles.labelWarnBadgeYellow,
+    desc: "의 허가정보에서 복용 전 의사·약사와 상담하도록 명시되어 있어요.",
+  },
+  caution: {
+    icon: "ℹ️", label: "주의 필요",
+    cardCls: styles.labelWarnCardBlue, headerCls: styles.labelHeaderBlue,
+    badgeCls: styles.labelWarnBadgeBlue,
+    desc: "의 허가정보에서 함께 복용 시 주의가 필요하다고 명시되어 있어요.",
+  },
+} as const;
+
+// ── 허가정보 레이블 경고 카드 ──────────────────────────────────
+function LabelWarningCard({ warning }: { warning: LabelWarning }) {
+  const [showText, setShowText] = useState(false);
+  const cfg = LABEL_SEVERITY_CFG[warning.severity];
+
+  return (
+    <div className={[styles.warningCard, cfg.cardCls].join(" ")}>
+      <div className={[styles.warningCardHeader, cfg.headerCls].join(" ")}>
+        <span className={[styles.warningBadge, cfg.badgeCls].join(" ")}>
+          {cfg.icon} {cfg.label}
+        </span>
+        <div className={styles.warningPair}>
+          <span className={styles.warnIngrName}>
+            {warning.drugA.ingrKorName ?? warning.drugA.itemName}
+          </span>
+          <span className={styles.warnArrow}>↔</span>
+          <span className={styles.warnIngrName}>
+            {warning.drugB.ingrKorName ?? warning.drugB.itemName}
+          </span>
+        </div>
+      </div>
+      <div className={styles.warningCardBody}>
+        <p className={styles.warningText}>
+          <strong>{warning.drugA.ingrKorName ?? warning.drugA.itemName}</strong>
+          {cfg.desc}
+          <br />
+          <span className={styles.labelMatchedNames}>
+            언급된 약물·계열: {warning.matchedNames.join(", ")}
+          </span>
+        </p>
+        {warning.briefReason && (
+          <p className={styles.labelBriefReason}>{warning.briefReason}</p>
+        )}
+        <p className={styles.labelSource}>
+          출처: 식약처 허가정보 · {warning.articleTitle}
+        </p>
+        <button
+          type="button"
+          className={styles.labelToggleBtn}
+          onClick={() => setShowText((v) => !v)}
+        >
+          {showText ? "▲ 원문 닫기" : "▼ 원문 보기"}
+        </button>
+        {showText && (
+          <p className={styles.labelOriginalText}>{warning.rawText}</p>
+        )}
       </div>
     </div>
   );
@@ -420,7 +501,10 @@ export default function ResultPanel({ state }: ResultPanelProps) {
   if (effective.status === "multi") {
     const { data } = effective;
     const totalWarnings =
-      data.dangerPairs.length + data.efficacyDuplicates.length + data.ingredientOverlaps.length;
+      data.dangerPairs.length +
+      data.efficacyDuplicates.length +
+      data.ingredientOverlaps.length +
+      (data.labelWarnings?.length ?? 0);
 
     return (
       <section className={styles.panel}>
@@ -535,9 +619,24 @@ export default function ResultPanel({ state }: ResultPanelProps) {
             </div>
           )}
 
+          {/* 허가정보 레이블 기반 상호작용 주의 */}
+          {(data.labelWarnings?.length ?? 0) > 0 && (
+            <div className={styles.section}>
+              <p className={styles.sectionTitle}>
+                📋 허가정보 기반 상호작용 주의 ({data.labelWarnings.length}건)
+              </p>
+              {data.labelWarnings.map((warn, i) => (
+                <LabelWarningCard
+                  key={`${warn.drugA.itemSeq}-${warn.drugB.itemSeq}-${i}`}
+                  warning={warn}
+                />
+              ))}
+            </div>
+          )}
+
           {data.isSafe && (
             <div className={styles.safeBadge}>
-              ✅ 선택한 약들 사이에 알려진 금기 및 중복이 없습니다.
+              ✅ 선택한 약들 사이에 알려진 금기 및 상호작용이 없습니다.
             </div>
           )}
         </div>
