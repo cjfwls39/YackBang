@@ -73,12 +73,12 @@ export default function SearchInput({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  /* ── 검색 API 호출 ── */
-  const fetchResults = useCallback(async (q: string) => {
+  /* ── 검색 API 호출 — 결과 배열 반환 (엔터 즉시검색에서 활용) ── */
+  const fetchResults = useCallback(async (q: string): Promise<DrugSearchResult[]> => {
     if (q.trim().length < 1) {
       setResults([]);
       setIsOpen(false);
-      return;
+      return [];
     }
     setIsLoading(true);
     updatePos();
@@ -87,9 +87,11 @@ export default function SearchInput({
       if (!res.ok) throw new Error("search failed");
       const data: DrugSearchResult[] = await res.json();
       setResults(data);
-      setIsOpen(true);
+      if (data.length > 0) setIsOpen(true);
+      return data;
     } catch {
       setResults([]);
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +104,7 @@ export default function SearchInput({
     debounceRef.current = setTimeout(() => fetchResults(val), 300);
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
     e.preventDefault();
 
@@ -112,10 +114,15 @@ export default function SearchInput({
       return;
     }
 
-    // 드롭다운이 없거나 결과가 없으면 디바운스 취소 후 즉시 검색
+    // 즉시 검색 후 결과 수에 따라 분기
     if (query.trim().length >= 1) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      fetchResults(query);
+      const found = await fetchResults(query);
+      // 결과가 정확히 1개면 자동 선택 (검색어가 불완전해도 바로 추가)
+      if (found.length === 1) {
+        handleSelect(found[0]);
+      }
+      // 여러 개면 드롭다운 표시 (이미 state 업데이트됨)
     }
   }
 
