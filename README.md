@@ -32,6 +32,8 @@
 ### ⚠️ 실생활 위험 조합 가이드
 - 한국 약국 판매량 상위 약품 기준 8가지 위험 조합 (타이레놀+음주, 감기약+수면유도제 등)
 - 최근 인기 GLP-1 계열 다이어트 주사 (위고비·마운자로) 관련 4가지 주의 조합
+- 계열명 매칭 지원 — "티아지드계"처럼 계열명으로 등록된 금기도 개별 성분명("히드로클로로티아지드")으로 탐지
+- safe 결과에 DUR 한계 고지 — 미등재 임상 상호작용 존재 가능성 안내
 
 ### 📱 모바일 최적화 & PWA
 - 모바일 하단 탭 내비게이션 (검색 ↔ 결과 탭 전환)
@@ -73,6 +75,7 @@ Supabase SDK 파라미터 쿼리 (SQL 인젝션 방지)
 - **클릭재킹**: `X-Frame-Options: DENY`
 - **MIME 스니핑**: `X-Content-Type-Options: nosniff`
 - **레퍼러 노출**: `Referrer-Policy: strict-origin-when-cross-origin`
+- **DB 접근**: Supabase anon key + RLS(SELECT only) — 프로덕션은 읽기 전용
 
 ---
 
@@ -98,14 +101,22 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ## 로컬 실행
 
 ```bash
-# 의존성 설치
+# 1. 저장소 클론
+git clone https://github.com/cjfwls39/YackBang.git
+cd YackBang
+
+# 2. 의존성 설치
 npm install
 
-# 개발 서버 실행
+# 3. 환경변수 설정
+cp .env.example .env.local
+# .env.local 파일에 실제 키 값 입력
+
+# 4. 개발 서버 실행
 npm run dev
 # → http://localhost:3000
 
-# 프로덕션 빌드
+# 프로덕션 빌드 확인
 npm run build && npm start
 ```
 
@@ -114,6 +125,7 @@ npm run build && npm start
 ## 데이터베이스 구조
 
 Supabase에 식약처 DUR 데이터를 수집·정제해 저장합니다.
+모든 테이블에 **RLS(Row Level Security) + SELECT 전용 정책** 적용 — 프로덕션 앱은 읽기만 가능합니다.
 
 | 테이블 | 내용 |
 |---|---|
