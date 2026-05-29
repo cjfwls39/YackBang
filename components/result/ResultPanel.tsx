@@ -15,6 +15,7 @@ import type {
 import DrugInfoCard from "./DrugInfoCard";
 import InteractionCard from "./InteractionCard";
 import SkeletonPanel from "./SkeletonPanel";
+import GuidePanel from "./GuidePanel";
 import styles from "./ResultPanel.module.css";
 
 // ─────────────────────────────────────
@@ -383,29 +384,25 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
       ? { status: "multi", data: MOCK_MULTI }
       : state;
 
-  /* ── idle ── */
+  /* ── idle: 위험 조합 가이드 ── */
   if (effective.status === "idle") {
     return (
       <section className={styles.panel}>
-        <div className={styles.empty}>
-          <span className={styles.emptyIcon}>💊</span>
-          <h2 className={styles.emptyTitle}>약을 검색해보세요</h2>
-          <p className={styles.emptyDesc}>
-            왼쪽에서 약을 추가하고
-            <br />
-            <strong>조회 버튼</strong>을 누르면
-            <br />
-            결과를 여기에 보여드려요.
-          </p>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", marginTop: "0.5rem" }}>
+        {/* 검색 안내 (작게) */}
+        <div className={styles.idleHint}>
+          <span className={styles.idleHintIcon}>💊</span>
+          <span className={styles.idleHintText}>
+            왼쪽에서 약을 검색해 추가하고 <strong>조회</strong>하면 결과를 보여드려요.
+          </span>
+          <div className={styles.idleDemoBtns}>
             <button className={styles.demoBtn} onClick={() => setDemoMode("single")}>
-              단일 조회 미리보기
-            </button>
-            <button className={styles.demoBtn} onClick={() => setDemoMode("multi")}>
-              병용 비교 미리보기
+              미리보기
             </button>
           </div>
         </div>
+
+        {/* 위험 조합 가이드 */}
+        <GuidePanel />
       </section>
     );
   }
