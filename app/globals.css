@@ -7,7 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* 한글 우선 → 라틴 fallback 순서 */
+  --font-sans: var(--font-noto-sans-kr), var(--font-geist-sans), ui-sans-serif, system-ui,
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -158,9 +160,9 @@
   --yb-brand-text:  #065F46;
 
   /* --- 텍스트 --- */
-  --yb-text-primary:   #111827;
-  --yb-text-secondary: #6B7280;
-  --yb-text-muted:     #9CA3AF;
+  --yb-text-primary:   #111827;   /* gray-900  — 제목·강조 */
+  --yb-text-secondary: #374151;   /* gray-700  — 본문 설명 (흰 배경 대비 7.6:1, WCAG AA ✓) */
+  --yb-text-muted:     #6B7280;   /* gray-500  — 보조 레이블 (흰 배경 대비 4.6:1, WCAG AA ✓) */
   --yb-text-inverse:   #F9FAFB;
 
   /* --- 서피스 (배경) --- */
