@@ -30,6 +30,24 @@ interface ResultPanelProps {
   shareUrl?: string | null;
 }
 
+// ── DUR 한계 안내 박스 ─────────────────────────────────────────
+// safe 결과일 때만 표시: DUR 미등재 상호작용 존재 가능성 명확히 고지
+function DurLimitNotice() {
+  return (
+    <div className={styles.durLimitNotice}>
+      <span className={styles.durLimitIcon}>ℹ️</span>
+      <div className={styles.durLimitBody}>
+        <p className={styles.durLimitTitle}>DUR 미등재 상호작용이 있을 수 있어요</p>
+        <p className={styles.durLimitDesc}>
+          이 결과는 식약처 DUR(의약품사용재검토)에 <strong>공식 등록된 병용금기</strong>만
+          확인합니다. DUR에 등재되지 않은 임상적 상호작용도 존재할 수 있으니,
+          복용 전 반드시 약사·의사와 상담하세요.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── 링크 복사 버튼 ─────────────────────────────────────────────
 function ShareButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -331,7 +349,7 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
               <p className={styles.summarySub}>
                 {hasProhibitions
                   ? "아래 성분과 함께 복용하면 위험할 수 있어요."
-                  : "현재 데이터베이스 기준으로는 금기 성분이 확인되지 않았어요."}
+                  : "식약처 DUR 등록 기준으로는 병용금기 성분이 확인되지 않았어요."}
               </p>
             </div>
             {shareUrl && <ShareButton url={shareUrl} />}
@@ -386,11 +404,7 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
             <EasyDrugInfoSection info={data.easyDrugInfo} />
           )}
 
-          {!hasProhibitions && (
-            <div className={styles.safeBadge}>
-              ✅ 현재 등록된 병용금기 성분이 없습니다.
-            </div>
-          )}
+          {!hasProhibitions && <DurLimitNotice />}
         </div>
       </section>
     );
@@ -419,7 +433,7 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
               </p>
               <p className={styles.summarySub}>
                 {data.isSafe
-                  ? `선택한 ${data.drugs.length}개 약 사이에 알려진 금기가 없어요.`
+                  ? `식약처 DUR 등록 기준으로 ${data.drugs.length}개 약 사이 금기가 확인되지 않았어요.`
                   : "아래 내용을 확인하고 반드시 약사·의사에게 상담하세요."}
               </p>
             </div>
@@ -528,11 +542,7 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
             </div>
           )}
 
-          {data.isSafe && (
-            <div className={styles.safeBadge}>
-              ✅ 선택한 약들 사이에 알려진 금기 및 상호작용이 없습니다.
-            </div>
-          )}
+          {data.isSafe && <DurLimitNotice />}
         </div>
       </section>
     );
