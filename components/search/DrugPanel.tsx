@@ -5,6 +5,7 @@ import type { HistoryEntry } from "@/lib/history";
 import SearchInput from "./SearchInput";
 import DrugChip from "./DrugChip";
 import RecentHistory from "./RecentHistory";
+import GuidePanel from "@/components/result/GuidePanel";
 import styles from "./DrugPanel.module.css";
 
 interface DrugPanelProps {
@@ -50,6 +51,14 @@ export default function DrugPanel({
             onEntriesChange={onHistoryChange ?? (() => {})}
           />
         </>
+      )}
+
+      {/* ── 모바일 전용: 위험 조합 가이드 (접힘 상태로 표시) ── */}
+      {selectedDrugs.length === 0 && (
+        <div className={styles.mobileGuide}>
+          <div className={styles.divider} />
+          <GuidePanel collapsible defaultOpen={false} />
+        </div>
       )}
 
       {/* ── 선택된 약 칩 + 조회 버튼 ── */}

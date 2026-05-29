@@ -6,6 +6,17 @@
   height: 100%;
 }
 
+/* ── 데스크탑 전용 (모바일에서는 DrugPanel에 표시) ── */
+.desktopOnly {
+  /* 기본: 표시 */
+}
+
+@media (max-width: 767px) {
+  .desktopOnly {
+    display: none;
+  }
+}
+
 /* ── idle 상태 안내 바 ── */
 .idleHint {
   display: flex;

@@ -33,6 +33,17 @@
   margin: 0 -1.25rem;
 }
 
+/* ── 모바일 전용 가이드 (PC에서는 ResultPanel에 표시) ── */
+.mobileGuide {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileGuide {
+    display: block;
+  }
+}
+
 /* ── 조회 버튼 ── */
 .checkBtn {
   width: 100%;

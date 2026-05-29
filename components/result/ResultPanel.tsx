@@ -401,8 +401,10 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
           </div>
         </div>
 
-        {/* 위험 조합 가이드 */}
-        <GuidePanel />
+        {/* 위험 조합 가이드 (데스크탑 전용 — 모바일은 DrugPanel에 표시) */}
+        <div className={styles.desktopOnly}>
+          <GuidePanel />
+        </div>
       </section>
     );
   }
