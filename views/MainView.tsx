@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Disclaimer from "@/components/common/Disclaimer";
 import DrugPanel from "@/components/search/DrugPanel";
 import ResultPanel from "@/components/result/ResultPanel";
+import SearchResultsPanel from "@/components/result/SearchResultsPanel";
 import MobileTabBar from "@/components/layout/MobileTabBar";
 import type {
   SelectedDrug,
@@ -31,6 +32,9 @@ export default function MainView() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [activeTab, setActiveTab] = useState<"search" | "result">("search");
+  /** 엔터 검색 결과 — 우측 패널에 목록으로 표시 */
+  const [searchResults, setSearchResults] = useState<DrugSearchResult[] | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   /* ── localStorage 기록 갱신 ── */
   const refreshHistory = useCallback(() => {
@@ -102,6 +106,21 @@ export default function MainView() {
     setSelectedDrugs(drugs);
     performQueryRef.current(drugs);
   }, []); // 마운트 1회만 실행
+
+  /* ── 엔터 검색 결과 수신 ── */
+  const handleEnterSearch = useCallback((results: DrugSearchResult[], query: string) => {
+    setSearchResults(results);
+    setSearchQuery(query);
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setActiveTab("result");
+    }
+  }, []);
+
+  /* ── 검색 결과 닫기 ── */
+  const handleCloseSearch = useCallback(() => {
+    setSearchResults(null);
+    setSearchQuery("");
+  }, []);
 
   /* ── 모바일 탭 자동 전환 ──────────────────────────────────────
    *  조회 시작(loading) → 결과 탭으로 즉시 이동해 스켈레톤 표시
@@ -198,12 +217,26 @@ export default function MainView() {
               history={history}
               onRestoreHistory={handleRestoreHistory}
               onHistoryChange={refreshHistory}
+              onEnterSearch={handleEnterSearch}
             />
           </div>
 
-          {/* 우측: 결과 패널 */}
+          {/* 우측: 검색 결과 or 결과 패널 */}
           <div className={styles.rightPanel}>
-            <ResultPanel state={resultState} shareUrl={shareUrl} />
+            {searchResults !== null ? (
+              <SearchResultsPanel
+                results={searchResults}
+                query={searchQuery}
+                onSelect={(drug) => {
+                  handleAdd(drug);
+                  setSearchResults(null);
+                  setSearchQuery("");
+                }}
+                onClose={handleCloseSearch}
+              />
+            ) : (
+              <ResultPanel state={resultState} shareUrl={shareUrl} />
+            )}
           </div>
         </div>
       </div>

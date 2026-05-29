@@ -9,6 +9,8 @@ interface SearchInputProps {
   onSelect: (drug: DrugSearchResult) => void;
   selectedCount: number;
   maxCount?: number;
+  /** 엔터 검색 시 결과 목록을 우측 패널로 넘기는 콜백 */
+  onEnterSearch?: (results: DrugSearchResult[], query: string) => void;
 }
 
 interface DropdownPos {
@@ -21,6 +23,7 @@ export default function SearchInput({
   onSelect,
   selectedCount,
   maxCount = 5,
+  onEnterSearch,
 }: SearchInputProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DrugSearchResult[]>([]);
@@ -108,21 +111,19 @@ export default function SearchInput({
     if (e.key !== "Enter") return;
     e.preventDefault();
 
-    // 드롭다운이 열려있고 결과가 있으면 첫 번째 항목 바로 선택
-    if (isOpen && results.length > 0) {
-      handleSelect(results[0]);
-      return;
-    }
+    if (query.trim().length < 1) return;
 
-    // 즉시 검색 후 결과 수에 따라 분기
-    if (query.trim().length >= 1) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      const found = await fetchResults(query);
-      // 결과가 정확히 1개면 자동 선택 (검색어가 불완전해도 바로 추가)
-      if (found.length === 1) {
-        handleSelect(found[0]);
-      }
-      // 여러 개면 드롭다운 표시 (이미 state 업데이트됨)
+    // 디바운스 취소 후 즉시 검색
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const found = await fetchResults(query);
+
+    if (onEnterSearch) {
+      // 우측 패널에 결과 목록으로 표시
+      setIsOpen(false);
+      onEnterSearch(found, query.trim());
+    } else if (found.length === 1) {
+      // 콜백 없을 때는 단일 결과 자동 선택 (폴백)
+      handleSelect(found[0]);
     }
   }
 

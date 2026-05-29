@@ -17,6 +17,7 @@ interface DrugPanelProps {
   history?: HistoryEntry[];
   onRestoreHistory?: (drugs: SelectedDrug[]) => void;
   onHistoryChange?: () => void;
+  onEnterSearch?: (results: DrugSearchResult[], query: string) => void;
 }
 
 export default function DrugPanel({
@@ -28,6 +29,7 @@ export default function DrugPanel({
   history = [],
   onRestoreHistory,
   onHistoryChange,
+  onEnterSearch,
 }: DrugPanelProps) {
   const isMulti = selectedDrugs.length >= 2;
   const canCheck = selectedDrugs.length >= 1 && !isLoading;
@@ -39,6 +41,7 @@ export default function DrugPanel({
         onSelect={onAdd}
         selectedCount={selectedDrugs.length}
         maxCount={5}
+        onEnterSearch={onEnterSearch}
       />
 
       {/* ── 최근 기록 (약이 선택되지 않은 상태에서만 표시) ── */}
