@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// Vercel 함수 최대 실행시간 (초) — Hobby 플랜 최대값. 초과 시 강제 종료되어 과금 방지.
+export const maxDuration = 10;
 import type { EasyDrugInfo } from "@/types/drug";
 import type {
   SelectedDrug,
@@ -345,9 +349,13 @@ async function fetchEasyDrugInfo(drug: SelectedDrug): Promise<EasyDrugInfo | nul
     url.searchParams.set("pageNo", "1");
     url.searchParams.set("itemName", baseName);
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000); // 5초 타임아웃
     const res = await fetch(url.toString(), {
+      signal: controller.signal,
       next: { revalidate: 86400 }, // 24시간 캐시 (공공데이터는 자주 바뀌지 않음)
     });
+    clearTimeout(timer);
     if (!res.ok) return null;
 
     const json = await res.json();
@@ -453,7 +461,13 @@ async function fetchProductLabel(itemSeq: string): Promise<string | null> {
     url.searchParams.set("numOfRows", "1");
     url.searchParams.set("item_seq", itemSeq);
 
-    const res = await fetch(url.toString(), { next: { revalidate: 86400 } });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000); // 5초 타임아웃
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      next: { revalidate: 86400 },
+    });
+    clearTimeout(timer);
     if (!res.ok) return null;
 
     const json = await res.json() as Record<string, unknown>;
@@ -461,7 +475,7 @@ async function fetchProductLabel(itemSeq: string): Promise<string | null> {
       Record<string, unknown>[] | undefined;
     return (items?.[0]?.NB_DOC_DATA as string) ?? null;
   } catch {
-    return null; // 네트워크 오류 → 조용히 무시
+    return null; // 타임아웃·네트워크 오류 → 조용히 무시
   }
 }
 
@@ -981,12 +995,42 @@ async function queryMulti(drugs: SelectedDrug[]): Promise<MultiDrugResult> {
 
 // ── Route Handler ─────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  // ── 글로벌 회로 차단기: 전체 분당 50회 초과 시 503 ─────────────
+  const { allowed: globalOk } = checkRateLimit("global:interaction", 50, 60_000);
+  if (!globalOk) {
+    return NextResponse.json(
+      { error: "서비스 과부하 상태입니다. 잠시 후 다시 시도해주세요." },
+      { status: 503, headers: { "Retry-After": "60" } }
+    );
+  }
+
+  // ── IP별 Rate Limiting: 분당 5회 ────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  const { allowed } = checkRateLimit(`interaction:${ip}`, 5, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { mode, drugs } = body as { mode: "single" | "multi"; drugs: SelectedDrug[] };
 
-    if (!drugs || drugs.length === 0) {
-      return NextResponse.json({ error: "drugs is required" }, { status: 400 });
+    // ── 입력 검증 ────────────────────────────────────────────────
+    if (!Array.isArray(drugs) || drugs.length === 0 || drugs.length > 5) {
+      return NextResponse.json({ error: "drugs는 1~5개 배열이어야 합니다" }, { status: 400 });
+    }
+
+    for (const drug of drugs) {
+      if (
+        typeof drug.itemSeq      !== "string" || drug.itemSeq.length      > 50   ||
+        typeof drug.itemName     !== "string" || drug.itemName.length     > 500  ||
+        typeof drug.itemIngrName !== "string" || drug.itemIngrName.length > 2000
+      ) {
+        return NextResponse.json({ error: "잘못된 약품 데이터입니다" }, { status: 400 });
+      }
     }
 
     if (mode === "single") {

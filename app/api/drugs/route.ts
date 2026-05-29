@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { DrugSearchResult } from "@/types/drug";
 
 /**
@@ -8,11 +9,36 @@ import type { DrugSearchResult } from "@/types/drug";
  * pg_trgm 인덱스 덕에 ilike '%검색어%' 도 50~150ms 수준으로 응답
  */
 export async function GET(req: NextRequest) {
+  // ── 글로벌 회로 차단기: 전체 분당 300회 초과 시 503 ────────────
+  const { allowed: globalOk } = checkRateLimit("global:drugs", 300, 60_000);
+  if (!globalOk) {
+    return NextResponse.json(
+      { error: "서비스 과부하 상태입니다. 잠시 후 다시 시도해주세요." },
+      { status: 503, headers: { "Retry-After": "60" } }
+    );
+  }
+
+  // ── IP별 Rate Limiting: 분당 60회 ───────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  const { allowed, remaining } = checkRateLimit(`drugs:${ip}`, 60, 60_000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
 
+  // ── 검색어 길이 검증 ─────────────────────────────────────────
   if (!q || q.length < 2) {
     return NextResponse.json([], { status: 200 });
   }
+  if (q.length > 100) {
+    return NextResponse.json([], { status: 200 });
+  }
+
+  void remaining; // 현재는 로그 미사용, 모니터링 필요 시 활성화
 
   try {
     const { data, error } = await getSupabase()
