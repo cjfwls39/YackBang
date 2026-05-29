@@ -18,108 +18,6 @@ import SkeletonPanel from "./SkeletonPanel";
 import GuidePanel from "./GuidePanel";
 import styles from "./ResultPanel.module.css";
 
-// ─────────────────────────────────────
-// 목업 데이터 (Supabase 연동 전 UI 확인용)
-// ─────────────────────────────────────
-const MOCK_SINGLE: SingleDrugResult = {
-  drug: {
-    itemSeq: "200300639",
-    itemName: "심바로틴정20밀리그램(심바스타틴)",
-    entpName: "알리코제약(주)",
-    ingrKorName: "심바스타틴",
-    spcltPblc: "전문의약품",
-  },
-  prohibitions: [
-    {
-      id: 1,
-      ingrCode: "D000027",
-      ingrKorName: "심바스타틴",
-      mixtureIngrKorName: "이트라코나졸",
-      mixtureItemName: "코니트라캡슐(이트라코나졸)",
-      prohbtContent: "근병증, 횡문근융해의 위험증가",
-      prohbtContentPlain: "근육이 심하게 손상되어 신장에 부담을 줄 수 있어요. (횡문근융해증)",
-    },
-    {
-      id: 2,
-      ingrCode: "D000027",
-      ingrKorName: "심바스타틴",
-      mixtureIngrKorName: "이트라코나졸고체분산체",
-      mixtureItemName: "스포라녹스캡슐(이트라코나졸고체분산체)",
-      prohbtContent: "근병증, 횡문근융해의 위험증가",
-      prohbtContentPlain: "근육이 심하게 손상되어 신장에 부담을 줄 수 있어요. (횡문근융해증)",
-    },
-  ],
-  pregnancyWarning: null,
-  elderlyCautions: [
-    { id: 1, ingrName: "심바스타틴", className: "근육독성 위험", note: "노인에서 횡문근융해 위험이 증가할 수 있으니 저용량부터 시작하세요." },
-  ],
-  ageRestrictions: [],
-  dosageCautions: [
-    { id: 1, ingrName: "심바스타틴", className: "신기능 저하 환자", note: "신기능이 나쁜 경우 용량을 줄여야 해요." },
-  ],
-  durationCautions: [],
-  tabletSplitCautions: [],
-  easyDrugInfo: {
-    itemSeq: "200300639",
-    itemName: "심바로틴정20밀리그램(심바스타틴)",
-    intrcQesitm: "이트라코나졸, 케토코나졸, 에리트로마이신 등 CYP3A4 억제제와 함께 복용하지 마십시오. 와파린(항응고제)을 복용 중인 경우 의사에게 반드시 알리십시오.",
-    atpnQesitm: "근육통, 압통, 쇠약감이 나타나면 즉시 복용을 중단하고 의사와 상담하세요. 임산부 또는 임신 가능성이 있는 여성은 복용하지 마십시오.",
-    atpnWarnQesitm: "횡문근융해증이 드물게 보고된 바 있습니다. 근육 관련 증상 발생 시 즉시 중단하세요.",
-  },
-};
-
-const MOCK_MULTI: MultiDrugResult = {
-  drugs: [
-    {
-      itemSeq: "200300639",
-      itemName: "심바로틴정20밀리그램(심바스타틴)",
-      entpName: "알리코제약(주)",
-      ingrKorName: "심바스타틴",
-      spcltPblc: "전문의약품",
-    },
-    {
-      itemSeq: "200000913",
-      itemName: "코니트라캡슐(이트라코나졸)(수출용)",
-      entpName: "코오롱제약(주)",
-      ingrKorName: "이트라코나졸",
-      spcltPblc: "전문의약품",
-    },
-  ],
-  dangerPairs: [
-    {
-      drugA: {
-        itemSeq: "200300639",
-        itemName: "심바로틴정20밀리그램(심바스타틴)",
-        entpName: "알리코제약(주)",
-        ingrKorName: "심바스타틴",
-        spcltPblc: "전문의약품",
-      },
-      drugB: {
-        itemSeq: "200000913",
-        itemName: "코니트라캡슐(이트라코나졸)(수출용)",
-        entpName: "코오롱제약(주)",
-        ingrKorName: "이트라코나졸",
-        spcltPblc: "전문의약품",
-      },
-      prohibition: {
-        id: 1,
-        ingrCode: "D000027",
-        ingrKorName: "심바스타틴",
-        mixtureIngrKorName: "이트라코나졸",
-        mixtureItemName: "코니트라캡슐(이트라코나졸)",
-        prohbtContent: "근병증, 횡문근융해의 위험증가",
-        prohbtContentPlain: "근육이 심하게 손상되어 신장에 부담을 줄 수 있어요. (횡문근융해증)",
-      },
-    },
-  ],
-  efficacyDuplicates: [],
-  ingredientOverlaps: [],
-  labelWarnings: [],
-  isSafe: false,
-};
-
-// ─────────────────────────────────────
-
 type ResultState =
   | { status: "idle" }
   | { status: "loading" }
@@ -375,17 +273,8 @@ function EasyDrugInfoSection({ info }: { info: EasyDrugInfo }) {
 }
 
 export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
-  const [demoMode, setDemoMode] = useState<"single" | "multi" | null>(null);
-
-  const effective: ResultState =
-    demoMode === "single"
-      ? { status: "single", data: MOCK_SINGLE }
-      : demoMode === "multi"
-      ? { status: "multi", data: MOCK_MULTI }
-      : state;
-
   /* ── idle: 위험 조합 가이드 ── */
-  if (effective.status === "idle") {
+  if (state.status === "idle") {
     return (
       <section className={styles.panel}>
         {/* 검색 안내 (작게) */}
@@ -394,11 +283,6 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
           <span className={styles.idleHintText}>
             왼쪽에서 약을 검색해 추가하고 <strong>조회</strong>하면 결과를 보여드려요.
           </span>
-          <div className={styles.idleDemoBtns}>
-            <button className={styles.demoBtn} onClick={() => setDemoMode("single")}>
-              미리보기
-            </button>
-          </div>
         </div>
 
         {/* 위험 조합 가이드 (데스크탑 전용 — 모바일은 DrugPanel에 표시) */}
@@ -410,37 +294,31 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
   }
 
   /* ── loading → 스켈레톤 UI ── */
-  if (effective.status === "loading") {
+  if (state.status === "loading") {
     return <SkeletonPanel />;
   }
 
   /* ── 오류 ── */
-  if (effective.status === "error") {
+  if (state.status === "error") {
     return (
       <section className={styles.panel}>
         <div className={styles.empty}>
           <span className={styles.emptyIcon}>⚠️</span>
           <h2 className={styles.emptyTitle}>오류가 발생했어요</h2>
-          <p className={styles.emptyDesc}>{effective.message}</p>
+          <p className={styles.emptyDesc}>{state.message}</p>
         </div>
       </section>
     );
   }
 
   /* ── 단일 조회 결과 ── */
-  if (effective.status === "single") {
-    const { data } = effective;
+  if (state.status === "single") {
+    const { data } = state;
     const hasProhibitions = data.prohibitions.length > 0;
 
     return (
       <section className={styles.panel}>
         <div className={styles.content}>
-          {demoMode && (
-            <button className={styles.demoBtn} onClick={() => setDemoMode(null)} style={{ alignSelf: "flex-start" }}>
-              ← 미리보기 닫기
-            </button>
-          )}
-
           {/* 요약 배너 */}
           <div className={[styles.summary, hasProhibitions ? styles.danger : styles.safe].join(" ")}>
             <span className={styles.summaryIcon}>{hasProhibitions ? "⚠️" : "✅"}</span>
@@ -519,8 +397,8 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
   }
 
   /* ── 병용 비교 결과 ── */
-  if (effective.status === "multi") {
-    const { data } = effective;
+  if (state.status === "multi") {
+    const { data } = state;
     const totalWarnings =
       data.dangerPairs.length +
       data.efficacyDuplicates.length +
@@ -530,12 +408,6 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
     return (
       <section className={styles.panel}>
         <div className={styles.content}>
-          {demoMode && (
-            <button className={styles.demoBtn} onClick={() => setDemoMode(null)} style={{ alignSelf: "flex-start" }}>
-              ← 미리보기 닫기
-            </button>
-          )}
-
           {/* 요약 배너 */}
           <div className={[styles.summary, data.isSafe ? styles.safe : styles.danger].join(" ")}>
             <span className={styles.summaryIcon}>{data.isSafe ? "✅" : "⚠️"}</span>

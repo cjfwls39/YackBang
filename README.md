@@ -1,220 +1,129 @@
-# 약방 (YackBang)
+# 약방 (YackBang) 💊
 
-> 의약품 병용금기 정보를 일반 사용자에게 쉬운 말로 전달하는 서비스
+> **복용 중인 약이 함께 먹어도 되는지, 전문 용어 없이 쉽게 확인하세요.**
 
-약을 두 가지 이상 복용할 때 "같이 먹어도 되나?" 라는 의문을 빠르게 해결합니다.  
-식품의약품안전처 공식 DUR 데이터를 기반으로, 전문용어 없이 누구나 이해할 수 있는 결과를 제공합니다.
+식약처 DUR(의약품 사용 재검토) 데이터를 기반으로 의약품 병용금기 정보를 일반인도 이해할 수 있는 언어로 제공하는 서비스입니다.
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://typescriptlang.org)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase)](https://supabase.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)](https://tailwindcss.com)
 
 ---
 
 ## 주요 기능
 
-### 단일 약 조회
-- 병용금기 목록 — 해당 약과 함께 복용하면 안 되는 약 전체
-- 임부금기 / 노인주의 / 연령대금기 / 용량주의 / 투여기간주의 / 서방정분할주의
-- e약은요 복약 안내 (효능·용법·부작용·상호작용)
+### 🔍 의약품 검색 & 병용금기 조회
+- 약품명 자동완성 검색 (Supabase `pg_trgm` 인덱스, 50~150ms 응답)
+- **단일 약 조회**: 병용금기 성분 목록, 임부금기, 노인 주의, 용량/기간 주의, 서방정 분할 금지
+- **병용 비교 (2~5개)**: 병용금기 쌍, 효능군 중복, 성분 중복, 허가정보 기반 상호작용 경고
 
-### 병용 비교 조회 (2~5개)
-4단계 경고 체계로 빠짐없이 탐지:
+### 🔗 URL 공유 & 최근 기록
+- 조회 결과를 URL로 공유 — 링크 하나로 동일한 조합 자동 조회
+- 최근 조회 기록 5건 자동 저장 (localStorage), 클릭 한 번으로 재조회
 
-| 단계 | 설명 | 데이터 소스 |
-|---|---|---|
-| 🚫 DUR 병용금기 | 식약처가 공식 지정한 병용 불가 쌍 | Supabase `dur_prohibition` |
-| 🔄 효능군 중복 | 같은 계열 약 중복 복용 경고 | Supabase `dur_efficacy_duplication` |
-| ⚠️ 성분 교집합 | 두 약에 동일 성분이 포함된 경우 | 성분명 실시간 파싱 |
-| 📋 허가정보 레이블 | DUR 미등재 상호작용을 허가정보 원문(NB_DOC_DATA)에서 탐지 | 식약처 허가정보 API |
+### ⚠️ 실생활 위험 조합 가이드
+- 한국 약국 판매량 상위 약품 기준 8가지 위험 조합 (타이레놀+음주, 감기약+수면유도제 등)
+- 최근 인기 GLP-1 계열 다이어트 주사 (위고비·마운자로) 관련 4가지 주의 조합
+
+### 📱 모바일 최적화 & PWA
+- 모바일 하단 탭 내비게이션 (검색 ↔ 결과 탭 전환)
+- 조회 시작 시 결과 탭 자동 전환 + 스켈레톤 로딩 UI
+- PWA 지원 — 홈 화면에 추가, 앱처럼 실행 (standalone 모드)
 
 ---
 
 ## 기술 스택
 
-| 영역 | 기술 |
+| 구분 | 기술 |
 |---|---|
-| 프레임워크 | Next.js 16 (App Router) + TypeScript |
-| 스타일 | Tailwind CSS v4 + shadcn/ui |
-| 데이터베이스 | Supabase (PostgreSQL) + pg_trgm |
-| 외부 API | 식약처 공공데이터 API (data.go.kr) |
-| 배포 | Vercel |
+| **프레임워크** | Next.js 16 (App Router) + React 19 + TypeScript |
+| **스타일** | Tailwind CSS v4 + CSS Modules |
+| **데이터베이스** | Supabase (PostgreSQL + pg_trgm 인덱스) |
+| **외부 API** | 식약처 공공데이터 DUR API, e약은요 API |
+| **배포** | Vercel |
+| **폰트** | Noto Sans KR (Google Fonts) |
 
 ---
 
-## 아키텍처
+## 보안 아키텍처
 
 ```
-[클라이언트]
-    │
-    ├─ 약품 검색 (타이핑)
-    │    └─ GET /api/drugs?q=타이레놀
-    │         └─ Supabase drug_products
-    │              └─ ilike + pg_trgm 인덱스 → 50~150ms
-    │
-    └─ 병용 조회 (버튼 클릭)
-         └─ POST /api/interaction { mode, drugs[] }
-              ├─ resolveIngredients() — 한글 성분명·성분코드 확보
-              │   (괄호 추출 → 인라인 영문매핑 → DB 역조회 순)
-              ├─ Supabase 병렬 쿼리 (DUR 테이블 최대 8개)
-              ├─ 효능군중복 / 성분교집합 계산
-              └─ 허가정보 NB_DOC_DATA 파싱 (DUR 미등재 보완)
-                   ├─ ARTICLE 제목 → 심각도 분류 (prohibited/avoid/consult/caution)
-                   ├─ 3단계 매칭 (직접 포함 → 효능군 → 역방향 stem)
-                   └─ briefReason 자동 추출 (원문 탐색 → 룩업 테이블 폴백)
+요청 진입
+  ↓
+글로벌 회로 차단기 (분당 전체 50회 초과 → 503)
+  ↓
+IP별 Rate Limiting (분당 5회 초과 → 429)
+  ↓
+입력 검증 (배열 크기 1~5, 필드 길이 제한)
+  ↓
+Supabase SDK 파라미터 쿼리 (SQL 인젝션 방지)
+  ↓
+외부 API fetch 타임아웃 5초 + maxDuration 10초
 ```
 
----
-
-## DB 스키마
-
-총 10개 테이블 (Supabase PostgreSQL)
-
-| 테이블 | 용도 | 동기화 방식 |
-|---|---|---|
-| `drug_products` | 약품 기본정보 + 이미지 (검색용) | upsert |
-| `dur_prohibition` | 병용금기 | truncate → insert |
-| `dur_pregnancy` | 임부금기 | truncate → insert |
-| `ingr_mapping` | 영문↔한글 성분명 매핑 | 수동 |
-| `dur_efficacy_duplication` | 효능군중복 | truncate → insert |
-| `dur_elderly_caution` | 노인주의 | truncate → insert |
-| `dur_age_restriction` | 특정연령대금기 | truncate → insert |
-| `dur_dosage_caution` | 용량주의 | truncate → insert |
-| `dur_duration_caution` | 투여기간주의 | truncate → insert |
-| `dur_tablet_split_caution` | 서방정분할주의 | truncate → insert |
-
-전체 DDL: [`supabase/schema.sql`](./supabase/schema.sql)
-
----
-
-## 파일 구조
-
-```
-yack_bang/
-├── app/
-│   ├── api/
-│   │   ├── drugs/route.ts          # 약품 검색 API (Supabase drug_products)
-│   │   └── interaction/route.ts    # 병용금기 조회 API (Supabase + 허가정보 API)
-│   ├── globals.css                 # CSS 변수 (디자인 토큰)
-│   └── page.tsx                    # 메인 페이지
-├── components/
-│   ├── search/
-│   │   ├── SearchInput.tsx         # 검색창 + 드롭다운 (portal)
-│   │   ├── DrugChip.tsx            # 선택 약 칩
-│   │   └── DrugPanel.tsx           # 검색 패널 전체
-│   ├── result/
-│   │   ├── ResultPanel.tsx         # 결과 표시 (단일/병용 모드)
-│   │   ├── DrugInfoCard.tsx        # 약품 기본정보 카드
-│   │   └── InteractionCard.tsx     # 병용금기 카드
-│   ├── layout/Header.tsx
-│   └── common/Disclaimer.tsx
-├── lib/
-│   └── supabase/server.ts          # Supabase 클라이언트 (지연 초기화)
-├── scripts/
-│   ├── sync-all.ts                 # 전체 DB 동기화 (9개 테이블 일괄)
-│   └── sync-drugs.ts               # drug_products 단독 동기화
-├── supabase/
-│   └── schema.sql                  # 전체 테이블 DDL + 인덱스
-├── types/
-│   └── drug.ts                     # TypeScript 타입 정의 전체
-└── docs/
-    ├── PRD.md                      # 기획 문서
-    └── API.md                      # 식약처 API 실물 테스트 메모
-```
+- **XSS**: React 자동 이스케이프 + Content Security Policy 헤더
+- **클릭재킹**: `X-Frame-Options: DENY`
+- **MIME 스니핑**: `X-Content-Type-Options: nosniff`
+- **레퍼러 노출**: `Referrer-Policy: strict-origin-when-cross-origin`
 
 ---
 
 ## 환경변수
 
-`.env.local` 파일 생성 후 입력:
-
-```env
-# 식약처 공공데이터 API 키 (https://www.data.go.kr 발급)
-DUR_API_KEY=your_api_key_here
-
-# Supabase (프로젝트 > Settings > API)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+DUR_API_KEY=your_dur_api_key   # data.go.kr 식약처 DUR API 키
 ```
 
 ---
 
-## 시작하기
+## 로컬 실행
 
-### 1. 의존성 설치
 ```bash
+# 의존성 설치
 npm install
-```
 
-### 2. Supabase 테이블 생성
-Supabase 대시보드 → SQL Editor에서 [`supabase/schema.sql`](./supabase/schema.sql) 전체 실행
-
-### 3. 초기 데이터 동기화 (최초 1회, 약 10~20분)
-```bash
-node --env-file=.env.local --experimental-strip-types scripts/sync-all.ts
-```
-
-### 4. 개발 서버 실행
-```bash
+# 개발 서버 실행
 npm run dev
+# → http://localhost:3000
+
+# 프로덕션 빌드
+npm run build && npm start
 ```
 
 ---
 
-## 데이터 동기화
+## 데이터베이스 구조
 
-식약처 데이터는 주기적으로 최신화가 필요합니다.
+Supabase에 식약처 DUR 데이터를 수집·정제해 저장합니다.
 
-```bash
-node --env-file=.env.local --experimental-strip-types scripts/sync-all.ts
-```
-
-| 대상 | 권장 주기 | 비고 |
-|---|---|---|
-| `drug_products` | 월 1회 | 신규 허가 약 반영 |
-| DUR 8개 테이블 | 분기 1회 | DUR 고시 개정 반영 |
-
----
-
-## 주요 설계 결정
-
-**약품 검색 속도**
-- 기존: 식약처 외부 API 2개 실시간 호출 → 500ms~1.5s
-- 현재: Supabase `drug_products` + pg_trgm 인덱스 → 50~150ms
-- `sync-all.ts`로 정기 동기화해 외부 API 의존성 제거
-
-**성분 해석 파이프라인**
-약품명 괄호 추출 → 인라인 영문↔한글 매핑(130개) → DB 역조회 순으로 한글 성분명 확보.  
-성분코드 기반 병용금기 조회로 "이트라코나졸" vs "이트라코나졸제피과립" 같은 표기 차이 해결.
-
-**허가정보 레이블 탐지**
-DUR DB에 없는 상호작용을 허가정보 NB_DOC_DATA XML에서 보완 탐지.  
-3단계 매칭(직접 포함 → 효능군 → 역방향 stem)으로 "바르비탈계 약물" → "페노바르비탈" 매칭.
-
-**병렬 처리**
-효능군 조회와 허가정보 레이블 fetch를 병용금기 루프와 동시 시작해 응답 시간 단축.  
-식약처 API 응답은 `next: { revalidate: 86400 }` (24h) Next.js 캐시 적용.
+| 테이블 | 내용 |
+|---|---|
+| `drug_products` | 의약품 기본 정보 (품목명, 성분, 제조사, 이미지 URL) |
+| `dur_prohibition` | 병용금기 성분 쌍 |
+| `dur_pregnancy` | 임부금기 |
+| `dur_elderly_caution` | 노인 주의 |
+| `dur_age_restriction` | 특정 연령대 금기 |
+| `dur_dosage_caution` | 용량 주의 |
+| `dur_duration_caution` | 투여기간 주의 |
+| `dur_tablet_split_caution` | 서방정 분할 금지 |
+| `dur_efficacy_duplication` | 효능군 중복 |
 
 ---
 
-## 데이터 출처
+## 추후 개발 예정
 
-모든 데이터는 [식품의약품안전처 공공데이터포털](https://www.data.go.kr)에서 제공합니다.
-
-| API 서비스 | 엔드포인트 | 용도 |
-|---|---|---|
-| `DrugPrdtPrmsnInfoService07` | `getDrugPrdtPrmsnInq07` | 약품 허가정보 검색 |
-| `DrugPrdtPrmsnInfoService07` | `getDrugPrdtPrmsnDtlInq06` | 허가정보 상세 (NB_DOC_DATA) |
-| `MdcinGrnIdntfcInfoService03` | `getMdcinGrnIdntfcInfoList03` | 낱알 이미지 |
-| `DURPrdlstInfoService03` | `getUsjntTabooInfoList03` | 병용금기 |
-| `DURPrdlstInfoService03` | `getPwnmTabooInfoList03` | 임부금기 |
-| `DURPrdlstInfoService03` | `getEfcyDplctInfoList03` | 효능군중복 |
-| `DURPrdlstInfoService03` | `getOdsnAtentInfoList03` | 노인주의 |
-| `DURPrdlstInfoService03` | `getSpcifyAgrdeTabooInfoList03` | 특정연령대금기 |
-| `DURPrdlstInfoService03` | `getCpctyAtentInfoList03` | 용량주의 |
-| `DURPrdlstInfoService03` | `getMdctnPdAtentInfoList03` | 투여기간주의 |
-| `DURPrdlstInfoService03` | `getSeobangjeongPartitnAtentInfoList03` | 서방정분할주의 |
-| `DrbEasyDrugInfoService` | `getDrbEasyDrugList` | e약은요 복약 안내 |
+- [ ] **약봉투 스캔 (OCR)** — 약봉투 사진을 업로드하면 AI가 약품명을 자동 인식해 병용 체크까지 한 번에 처리 (Claude Vision API 활용 예정)
+- [ ] **나의 약 보관함** — 만성질환자를 위한 상시 복용 약 저장 기능. 새 약 추가 시 "보관함과 비교" 버튼으로 즉시 병용 체크
+- [ ] **Upstash Redis 분산 Rate Limiting** — 현재 인메모리 방식을 Redis 기반으로 교체해 Vercel 멀티 인스턴스 환경에서도 정확한 트래픽 제어
 
 ---
 
-## 면책조항
+## 면책 고지
 
-이 서비스는 **참고용 정보 제공**이 목적이며, 실제 복약 전에는 반드시 의사 또는 약사와 상담하세요.  
-YackBang은 의료 서비스가 아니며, 제공된 정보에 대한 의학적 책임을 지지 않습니다.
+이 서비스는 **참고용 정보만 제공**합니다.
+실제 복약 여부는 반드시 의사 또는 약사와 상담하시기 바랍니다.
+식약처 데이터 기준이며, 최신 정보와 다를 수 있습니다.
