@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GUIDE_COMBINATIONS } from "@/data/guide-combinations";
+import { GUIDE_GROUPS } from "@/data/guide-combinations";
 import type { GuideCombination } from "@/data/guide-combinations";
 import styles from "./GuidePanel.module.css";
 
@@ -95,14 +95,28 @@ export default function GuidePanel({
             </p>
           )}
 
-          <div className={styles.grid}>
-            {GUIDE_COMBINATIONS.map((combo) => (
-              <GuideCard key={combo.id} combo={combo} />
-            ))}
-          </div>
+          {/* 그룹별 섹션 */}
+          {GUIDE_GROUPS.map((group, idx) => (
+            <div key={group.id} className={styles.group}>
+              {/* 두 번째 그룹부터 구분선 + 섹션 헤더 */}
+              {idx > 0 && <div className={styles.groupDivider} />}
+              <div className={styles.groupHeader}>
+                <span className={styles.groupTitle}>{group.title}</span>
+                {group.subtitle && (
+                  <span className={styles.groupSubtitle}>{group.subtitle}</span>
+                )}
+              </div>
+
+              <div className={styles.grid}>
+                {group.combinations.map((combo) => (
+                  <GuideCard key={combo.id} combo={combo} />
+                ))}
+              </div>
+            </div>
+          ))}
 
           <p className={styles.source}>
-            출처: 식약처 의약품안전나라 병용금기 정보 · 서울대 국민건강지식센터
+            출처: 식약처 의약품안전나라 · 서울대 국민건강지식센터 · GoodRx Drug Interactions
           </p>
         </>
       )}

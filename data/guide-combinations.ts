@@ -1,14 +1,13 @@
 /**
  * 실생활 위험 약 조합 가이드
- * — 한국 약국 판매량 상위 약품 기준으로 선정한 8가지 주의 조합
- * — 모두 식약처 DUR 또는 임상적으로 확인된 병용금기·주의 조합
+ * — 그룹별로 구분해 GuidePanel에서 섹션 헤더와 함께 렌더링
  */
 
 export type Severity = "danger" | "warning";
 
 export interface GuideCombination {
   id: string;
-  /** 왼쪽 약 표시명 (브랜드·제품명) */
+  /** 왼쪽 약 표시명 */
   drugA: string;
   /** 왼쪽 약 성분/부연 */
   drugANote: string;
@@ -16,9 +15,8 @@ export interface GuideCombination {
   drugB: string;
   /** 오른쪽 약 성분/부연 */
   drugBNote: string;
-  /** 위험 등급 */
   severity: Severity;
-  /** 위험 요약 (짧게) */
+  /** 위험 요약 */
   riskTitle: string;
   /** 일반인용 쉬운 설명 */
   description: string;
@@ -26,7 +24,17 @@ export interface GuideCombination {
   category: string;
 }
 
-export const GUIDE_COMBINATIONS: GuideCombination[] = [
+export interface GuideGroup {
+  id: string;
+  /** 섹션 제목 */
+  title: string;
+  /** 섹션 부제 (선택) */
+  subtitle?: string;
+  combinations: GuideCombination[];
+}
+
+// ── 그룹 1: 일반 병용금기 ──────────────────────────────────────
+const GENERAL_COMBINATIONS: GuideCombination[] = [
   {
     id: "acetaminophen-cold",
     drugA: "타이레놀",
@@ -124,3 +132,75 @@ export const GUIDE_COMBINATIONS: GuideCombination[] = [
     category: "처방약",
   },
 ];
+
+// ── 그룹 2: 다이어트 주사 관련 ────────────────────────────────
+const GLP1_COMBINATIONS: GuideCombination[] = [
+  {
+    id: "glp1-insulin",
+    drugA: "위고비·마운자로",
+    drugANote: "세마글루타이드·티르제파타이드",
+    drugB: "인슐린",
+    drugBNote: "노보라피드·란투스·인슐린 글라진 등",
+    severity: "danger",
+    riskTitle: "저혈당 쇼크",
+    description:
+      "GLP-1 주사제는 인슐린 분비를 촉진해요. 인슐린을 추가로 주사하면 혈당이 위험 수준까지 떨어질 수 있어요. 반드시 의사와 인슐린 용량 조절을 먼저 상의하세요.",
+    category: "다이어트 주사",
+  },
+  {
+    id: "glp1-sulfonylurea",
+    drugA: "위고비·마운자로",
+    drugANote: "세마글루타이드·티르제파타이드",
+    drugB: "설포닐우레아 계열",
+    drugBNote: "글리메피리드·다이아미크롱·글리클라지드",
+    severity: "danger",
+    riskTitle: "저혈당",
+    description:
+      "설포닐우레아 계열 당뇨약도 인슐린 분비를 자극해요. GLP-1 주사제와 함께 쓰면 저혈당 위험이 크게 높아져요. 당뇨 치료 중 체중 감량 주사를 고려한다면 반드시 담당의와 상담하세요.",
+    category: "다이어트 주사",
+  },
+  {
+    id: "glp1-glp1",
+    drugA: "위고비",
+    drugANote: "세마글루타이드 (GLP-1)",
+    drugB: "마운자로",
+    drugBNote: "티르제파타이드 (GLP-1·GIP)",
+    severity: "danger",
+    riskTitle: "GLP-1 과자극 → 췌장염·구역",
+    description:
+      "두 약 모두 GLP-1 수용체를 자극해요. 효과가 배가될 것 같지만 오히려 극심한 구역·구토, 췌장염 위험이 높아져요. 동시에 처방받는 것 자체가 금기예요.",
+    category: "다이어트 주사",
+  },
+  {
+    id: "glp1-pill",
+    drugA: "위고비·마운자로",
+    drugANote: "세마글루타이드·티르제파타이드",
+    drugB: "경구 피임약",
+    drugBNote: "야즈·머시론·미뉴렛 등",
+    severity: "warning",
+    riskTitle: "피임 효과 감소",
+    description:
+      "GLP-1 주사제는 위 배출 속도를 늦춰 먹는 약의 흡수를 줄여요. 투약 초기 4주간 특히 피임약 흡수가 감소할 수 있어요. 이 기간엔 추가 피임법을 병행하세요.",
+    category: "다이어트 주사",
+  },
+];
+
+// ── 그룹 정의 ──────────────────────────────────────────────────
+export const GUIDE_GROUPS: GuideGroup[] = [
+  {
+    id: "general",
+    title: "일반 병용금기",
+    combinations: GENERAL_COMBINATIONS,
+  },
+  {
+    id: "glp1",
+    title: "다이어트 주사 관련",
+    subtitle: "위고비·마운자로 (GLP-1 계열) 주의 조합",
+    combinations: GLP1_COMBINATIONS,
+  },
+];
+
+/** 전체 조합 (flat) — 기존 코드 호환용 */
+export const GUIDE_COMBINATIONS: GuideCombination[] = GUIDE_GROUPS.flatMap(
+  (g) => g.combinations
+);
