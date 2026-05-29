@@ -1,8 +1,10 @@
 "use client";
 
 import type { SelectedDrug, DrugSearchResult } from "@/types/drug";
+import type { HistoryEntry } from "@/lib/history";
 import SearchInput from "./SearchInput";
 import DrugChip from "./DrugChip";
+import RecentHistory from "./RecentHistory";
 import styles from "./DrugPanel.module.css";
 
 interface DrugPanelProps {
@@ -11,6 +13,9 @@ interface DrugPanelProps {
   onRemove: (itemSeq: string) => void;
   onCheck: () => void;
   isLoading?: boolean;
+  history?: HistoryEntry[];
+  onRestoreHistory?: (drugs: SelectedDrug[]) => void;
+  onHistoryChange?: () => void;
 }
 
 export default function DrugPanel({
@@ -19,6 +24,9 @@ export default function DrugPanel({
   onRemove,
   onCheck,
   isLoading = false,
+  history = [],
+  onRestoreHistory,
+  onHistoryChange,
 }: DrugPanelProps) {
   const isMulti = selectedDrugs.length >= 2;
   const canCheck = selectedDrugs.length >= 1 && !isLoading;
@@ -31,6 +39,18 @@ export default function DrugPanel({
         selectedCount={selectedDrugs.length}
         maxCount={5}
       />
+
+      {/* ── 최근 기록 (약이 선택되지 않은 상태에서만 표시) ── */}
+      {selectedDrugs.length === 0 && onRestoreHistory && history.length > 0 && (
+        <>
+          <div className={styles.divider} />
+          <RecentHistory
+            entries={history}
+            onRestore={onRestoreHistory}
+            onEntriesChange={onHistoryChange ?? (() => {})}
+          />
+        </>
+      )}
 
       {/* ── 선택된 약 칩 + 조회 버튼 ── */}
       {selectedDrugs.length > 0 && (

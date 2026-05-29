@@ -106,6 +106,33 @@
   border: 1.5px solid;
 }
 
+/* ── 링크 공유 버튼 ── */
+.shareBtn {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.375rem 0.875rem;
+  border-radius: var(--yb-radius-full);
+  border: 1.5px solid var(--yb-border-strong);
+  background: var(--yb-surface);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--yb-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--yb-transition), color var(--yb-transition);
+  white-space: nowrap;
+}
+
+.shareBtn:hover {
+  border-color: var(--yb-brand);
+  color: var(--yb-brand-dark);
+}
+
+.shareBtnCopied {
+  border-color: var(--yb-safe-border) !important;
+  color: var(--yb-safe-text) !important;
+}
+
 .summary.safe {
   background-color: var(--yb-safe-bg);
   border-color: var(--yb-safe-border);

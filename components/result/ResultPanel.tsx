@@ -127,6 +127,33 @@ type ResultState =
 
 interface ResultPanelProps {
   state: ResultState;
+  shareUrl?: string | null;
+}
+
+// ── 링크 복사 버튼 ─────────────────────────────────────────────
+function ShareButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API 미지원 환경 → 조용히 무시
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={[styles.shareBtn, copied ? styles.shareBtnCopied : ""].join(" ")}
+      onClick={handleCopy}
+      title="이 결과 링크를 클립보드에 복사"
+    >
+      {copied ? "✓ 복사됨" : "🔗 링크 복사"}
+    </button>
+  );
 }
 
 // ── 개별 주의 항목 ────────────────────────────────────────────
@@ -345,7 +372,7 @@ function EasyDrugInfoSection({ info }: { info: EasyDrugInfo }) {
   );
 }
 
-export default function ResultPanel({ state }: ResultPanelProps) {
+export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
   const [demoMode, setDemoMode] = useState<"single" | "multi" | null>(null);
 
   const effective: ResultState =
@@ -436,6 +463,7 @@ export default function ResultPanel({ state }: ResultPanelProps) {
                   : "현재 데이터베이스 기준으로는 금기 성분이 확인되지 않았어요."}
               </p>
             </div>
+            {shareUrl && <ShareButton url={shareUrl} />}
           </div>
 
           {/* 약 정보 */}
@@ -530,6 +558,7 @@ export default function ResultPanel({ state }: ResultPanelProps) {
                   : "아래 내용을 확인하고 반드시 약사·의사에게 상담하세요."}
               </p>
             </div>
+            {shareUrl && <ShareButton url={shareUrl} />}
           </div>
 
           {/* 선택한 약 목록 */}
