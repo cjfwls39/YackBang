@@ -1,0 +1,116 @@
+/* ────────────────────────────────────────
+   shimmer 애니메이션
+   ::after 오버레이 방식 — CSS 변수 테마에 무관하게 동작
+   ──────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* 모든 스켈레톤 블록의 공통 기반 */
+.skel {
+  display: block;
+  background-color: var(--yb-border);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* 흰색 빛 줄기가 왼→오 스윕 */
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 80%
+  );
+  animation: shimmer 1.5s infinite ease-in-out;
+}
+
+/* ── 패널/콘텐츠 — ResultPanel.module.css와 동일 구조 ── */
+.panel {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--yb-surface-sub);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.content {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── 요약 배너 스켈레톤 ── */
+.bannerSkel {
+  padding: 1rem 1.25rem;
+  border-radius: var(--yb-radius-md);
+  border: 1.5px solid var(--yb-border);
+  background-color: var(--yb-surface);
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.bannerTexts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── 섹션 ── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── 약 정보 카드 스켈레톤 ── */
+.drugCard {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--yb-surface);
+  border: 1.5px solid var(--yb-border);
+  border-radius: var(--yb-radius-md);
+}
+
+.drugInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* ── 병용금기 카드 스켈레톤 ── */
+.interactionCard {
+  background-color: var(--yb-surface);
+  border: 1.5px solid var(--yb-border);
+  border-radius: var(--yb-radius-md);
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  background-color: var(--yb-surface-sub);
+  border-bottom: 1px solid var(--yb-border);
+}
+
+.cardBody {
+  padding: 0.75rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

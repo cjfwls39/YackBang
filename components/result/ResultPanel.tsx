@@ -14,6 +14,7 @@ import type {
 } from "@/types/drug";
 import DrugInfoCard from "./DrugInfoCard";
 import InteractionCard from "./InteractionCard";
+import SkeletonPanel from "./SkeletonPanel";
 import styles from "./ResultPanel.module.css";
 
 // ─────────────────────────────────────
@@ -409,16 +410,9 @@ export default function ResultPanel({ state, shareUrl }: ResultPanelProps) {
     );
   }
 
-  /* ── loading ── */
+  /* ── loading → 스켈레톤 UI ── */
   if (effective.status === "loading") {
-    return (
-      <section className={styles.panel}>
-        <div className={styles.loading}>
-          <div className={styles.spinner} />
-          <p className={styles.loadingText}>정보를 불러오는 중...</p>
-        </div>
-      </section>
-    );
+    return <SkeletonPanel />;
   }
 
   /* ── 오류 ── */
