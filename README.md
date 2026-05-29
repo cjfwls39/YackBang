@@ -81,18 +81,17 @@ Supabase SDK 파라미터 쿼리 (SQL 인젝션 방지)
 모든 키는 **서버 전용**입니다. `NEXT_PUBLIC_` 접두사를 붙이지 마세요.
 
 ```bash
-# .env.local  (또는 Vercel 대시보드 → Settings → Environment Variables)
-
-# Supabase — Settings → API → Project URL / service_role key
+# Vercel 환경변수 (Settings → Environment Variables)
 SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-# 식약처 공공데이터 DUR API — data.go.kr 신청
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...  # anon (public) key
 DUR_API_KEY=your_dur_api_key
+
+# 로컬 전용 (.env.local에만, 데이터 동기화 스크립트용)
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-> ⚠️ `SUPABASE_SERVICE_ROLE_KEY`는 RLS를 우회하는 고권한 키입니다.
-> 클라이언트에 절대 노출하지 마세요. 모든 Supabase 호출은 서버 API Route에서만 이루어집니다.
+> **보안 구조**: 프로덕션은 `SUPABASE_ANON_KEY` + RLS(SELECT only) 조합으로 읽기 전용.
+> `SUPABASE_SERVICE_ROLE_KEY`는 로컬에서 월별 데이터 동기화 시에만 사용하며 Vercel에 올리지 않습니다.
 
 ---
 
