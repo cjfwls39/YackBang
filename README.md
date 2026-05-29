@@ -71,12 +71,21 @@ Supabase SDK 파라미터 쿼리 (SQL 인젝션 방지)
 
 ## 환경변수
 
+모든 키는 **서버 전용**입니다. `NEXT_PUBLIC_` 접두사를 붙이지 마세요.
+
 ```bash
-# .env.local
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-DUR_API_KEY=your_dur_api_key   # data.go.kr 식약처 DUR API 키
+# .env.local  (또는 Vercel 대시보드 → Settings → Environment Variables)
+
+# Supabase — Settings → API → Project URL / service_role key
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# 식약처 공공데이터 DUR API — data.go.kr 신청
+DUR_API_KEY=your_dur_api_key
 ```
+
+> ⚠️ `SUPABASE_SERVICE_ROLE_KEY`는 RLS를 우회하는 고권한 키입니다.
+> 클라이언트에 절대 노출하지 마세요. 모든 Supabase 호출은 서버 API Route에서만 이루어집니다.
 
 ---
 

@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — 실제 키 파일 제외, example은 커밋 허용
 .env*
+!.env.example
 
 # vercel
 .vercel
