@@ -1,0 +1,81 @@
+MIT License
+Copyright (c) 2026 JCJ
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+───────────────────────────────────────────────────────────────────────────────
+
+MIT 라이선스
+Copyright (c) 2026 JCJ
+
+이 소프트웨어 및 관련 문서 파일("소프트웨어")의 사본을 취득하는 모든 사람에게
+소프트웨어를 제한 없이 사용, 복사, 수정, 병합, 게시, 배포, 서브라이선스 부여 및
+판매할 수 있는 권한을 무상으로 허가합니다. 단, 다음 조건을 충족해야 합니다:
+
+위의 저작권 표시와 이 허가 표시는 소프트웨어의 모든 사본 또는 중요한 부분에
+포함되어야 합니다.
+
+이 소프트웨어는 상품성, 특정 목적에의 적합성 및 비침해에 관한 보증을 포함하여
+명시적이든 묵시적이든 어떠한 종류의 보증 없이 "있는 그대로" 제공됩니다.
+저작자 또는 저작권자는 계약, 불법 행위 또는 기타로 인해 발생하는 소프트웨어,
+소프트웨어의 사용 또는 기타 거래로 인해 발생하는 청구, 손해 또는 기타 책임에
+대해 어떠한 경우에도 책임을 지지 않습니다.
+
+───────────────────────────────────────────────────────────────────────────────
+
+AI Tool Usage Disclosure / AI 도구 사용 고지
+
+[English]
+
+This project was developed with the assistance of AI coding tools,
+specifically Claude (developed by Anthropic).
+
+AI assistance was used for:
+- Code generation and implementation guidance
+- Security review and architectural decisions
+- UI/UX implementation suggestions
+- Documentation drafting
+
+All AI-generated code was reviewed, tested, and intentionally directed by
+the human developer. Final decisions regarding architecture, features, and
+content were made by the author. The author takes full responsibility for
+the accuracy and appropriateness of this software.
+
+The use of AI tools does not transfer ownership or liability to Anthropic
+or any other AI provider.
+
+───────────────────────────────────────────────────────────────────────────────
+
+[한국어]
+
+이 프로젝트는 Anthropic이 개발한 AI 코딩 도구 Claude의 도움을 받아
+개발되었습니다.
+
+AI 도구는 다음 영역에서 활용되었습니다:
+- 코드 생성 및 구현 가이드
+- 보안 검토 및 아키텍처 설계
+- UI/UX 구현 제안
+- 문서 초안 작성
+
+AI가 생성한 모든 코드는 개발자가 직접 검토하고 테스트하였으며,
+아키텍처·기능·콘텐츠에 관한 최종 결정은 저작자가 내렸습니다.
+이 소프트웨어의 정확성과 적절성에 대한 책임은 저작자에게 있습니다.
+
+AI 도구 사용으로 인해 Anthropic 또는 기타 AI 제공업체에게
+소유권이나 책임이 이전되지 않습니다.
