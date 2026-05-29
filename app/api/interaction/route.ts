@@ -526,6 +526,34 @@ function parseLabelSections(xml: string): LabelSection[] {
   return sections;
 }
 
+// ── 계열명 포함 성분 매칭 헬퍼 ───────────────────────────────────
+/**
+ * dur_prohibition의 mixture_ingr_kor_name이 대상 약의 성분명과 일치하는지 확인.
+ * DB에 "티아지드계"처럼 계열명으로 저장된 경우도 개별 성분명("히드로클로로티아지드")과 매칭.
+ *
+ * 1. 직접 이름 일치
+ * 2. 계열명 stem 추출 후 대상 성분명 포함 여부 확인
+ *    "티아지드계" → stem "티아지드" → "히드로클로로티아지드".includes("티아지드") → true
+ *    "스타틴" → stem "스타틴" → "심바스타틴".includes("스타틴") → true
+ */
+function matchesIngredientOrClass(
+  mixtureIngrName: string | null | undefined,
+  targetNames: string[],
+): boolean {
+  if (!mixtureIngrName?.trim() || targetNames.length === 0) return false;
+
+  // 1. 직접 이름 일치
+  if (targetNames.some((n) => n === mixtureIngrName)) return true;
+
+  // 2. 계열명 → stem 추출 (접미사 "계", "계열", "약물", "제제", "류" 제거)
+  const stem = mixtureIngrName.replace(/\s*(계열?|약물?|제제|류)$/u, "").trim();
+  if (stem.length >= 3 && stem !== mixtureIngrName) {
+    if (targetNames.some((n) => n.includes(stem))) return true;
+  }
+
+  return false;
+}
+
 // ── 레이블 매칭 헬퍼 ─────────────────────────────────────────────
 
 /** 염·수화물 접미사 제거 (stem 비교용) */
@@ -839,20 +867,34 @@ async function queryMulti(drugs: SelectedDrug[]): Promise<MultiDrugResult> {
       const useCode = codesA.length > 0 && codesB.length > 0;
 
       const sb = getSupabase();
-      const [fwd, rev] = await Promise.all([
-        useCode
-          ? sb.from("dur_prohibition").select("*")
-              .in("ingr_code", codesA).in("mixture_ingr_code", codesB).limit(1)
-          : sb.from("dur_prohibition").select("*")
-              .in("ingr_kor_name", namesA).in("mixture_ingr_kor_name", namesB).limit(1),
-        useCode
-          ? sb.from("dur_prohibition").select("*")
-              .in("ingr_code", codesB).in("mixture_ingr_code", codesA).limit(1)
-          : sb.from("dur_prohibition").select("*")
-              .in("ingr_kor_name", namesB).in("mixture_ingr_kor_name", namesA).limit(1),
-      ]);
 
-      const found = fwd.data?.[0] ?? rev.data?.[0];
+      // Phase 1: 성분코드 기반 정확 매칭 (빠름, 명칭 표기 차이 무시)
+      let found: Record<string, unknown> | undefined;
+      if (useCode) {
+        const [fwd, rev] = await Promise.all([
+          sb.from("dur_prohibition").select("*")
+            .in("ingr_code", codesA).in("mixture_ingr_code", codesB).limit(1),
+          sb.from("dur_prohibition").select("*")
+            .in("ingr_code", codesB).in("mixture_ingr_code", codesA).limit(1),
+        ]);
+        found = fwd.data?.[0] ?? rev.data?.[0];
+      }
+
+      // Phase 2: 이름 기반 매칭 + 계열명 stem 폴백
+      // "티아지드계" → "히드로클로로티아지드" 같이 계열명으로 저장된 경우 대응
+      if (!found && namesA.length > 0 && namesB.length > 0) {
+        const [fwdRows, revRows] = await Promise.all([
+          sb.from("dur_prohibition").select("*").in("ingr_kor_name", namesA).limit(300),
+          sb.from("dur_prohibition").select("*").in("ingr_kor_name", namesB).limit(300),
+        ]);
+        found =
+          (fwdRows.data ?? []).find((row) =>
+            matchesIngredientOrClass(row.mixture_ingr_kor_name as string, namesB)
+          ) ??
+          (revRows.data ?? []).find((row) =>
+            matchesIngredientOrClass(row.mixture_ingr_kor_name as string, namesA)
+          );
+      }
       if (found) {
         dangerPairs.push({
           drugA: drugsWithKor[i],
