@@ -254,9 +254,11 @@ async function resolveIngredients(drug: SelectedDrug): Promise<ResolvedIngredien
   const isMultiIngr = drug.itemIngrName?.includes("/");
   const sb = getSupabase();
 
-  // 4. item_seq 역조회 — 다성분 약이거나 이름을 못 찾은 경우에만
-  //    ingr_kor_name 과 ingr_code 를 동시에 수집
-  if (drug.itemSeq && (names.size === 0 || isMultiIngr)) {
+  // 4. item_seq 역조회 — 항상 실행해 DUR 테이블 기준 실제 성분 전체 수집
+  //    수출용 복합제처럼 itemIngrName에 일부 성분만 기재된 경우에도 대응
+  //    (예: 게보린 수출용 → itemIngrName "Acetaminophen"만 있지만
+  //         실제론 이소프로필안티피린·카페인도 포함 → 역조회로만 확인 가능)
+  if (drug.itemSeq) {
     const [fromProhib, fromElderly, fromDosage] = await Promise.all([
       sb.from("dur_prohibition")
         .select("ingr_kor_name, ingr_code")
