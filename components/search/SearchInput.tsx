@@ -102,6 +102,23 @@ export default function SearchInput({
     debounceRef.current = setTimeout(() => fetchResults(val), 300);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+
+    // 드롭다운이 열려있고 결과가 있으면 첫 번째 항목 바로 선택
+    if (isOpen && results.length > 0) {
+      handleSelect(results[0]);
+      return;
+    }
+
+    // 드롭다운이 없거나 결과가 없으면 디바운스 취소 후 즉시 검색
+    if (query.trim().length >= 1) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      fetchResults(query);
+    }
+  }
+
   function handleSelect(drug: DrugSearchResult) {
     onSelect(drug);
     setQuery("");
@@ -186,6 +203,7 @@ export default function SearchInput({
           className={styles.input}
           value={query}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
           onFocus={() => { if (results.length > 0) { updatePos(); setIsOpen(true); } }}
           placeholder={
             isFull
