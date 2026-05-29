@@ -1,0 +1,113 @@
+/* PC에서는 숨김 — 모바일(767px 이하)에서만 표시 */
+.tabBar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .tabBar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--yb-tabbar-height);
+    /* iPhone 홈 인디케이터(노치) 영역 보정 */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--yb-surface);
+    border-top: 1px solid var(--yb-border);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 60;
+  }
+}
+
+/* ── 개별 탭 버튼 ── */
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--yb-text-muted);
+  padding: 0.375rem 0;
+  transition: color var(--yb-transition);
+  -webkit-tap-highlight-color: transparent; /* 모바일 탭 하이라이트 제거 */
+}
+
+.tab.active {
+  color: var(--yb-brand-dark);
+}
+
+/* 아이콘 + 뱃지/도트 묶음 */
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabIcon {
+  font-size: 1.25rem;
+  line-height: 1;
+  display: block;
+}
+
+.tabLabel {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+/* ── 검색 탭 — 선택된 약 개수 뱃지 ── */
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--yb-radius-full);
+  background-color: var(--yb-brand);
+  color: #fff;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: 2px solid var(--yb-surface);
+}
+
+/* ── 결과 탭 — 상태 인디케이터 도트 ── */
+.dot {
+  position: absolute;
+  top: -4px;
+  right: -7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--yb-surface);
+}
+
+.dotLoading {
+  background-color: var(--yb-text-muted);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.dotDanger {
+  background-color: var(--yb-danger);
+}
+
+.dotSafe {
+  background-color: var(--yb-safe);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.85); }
+}

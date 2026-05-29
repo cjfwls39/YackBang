@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Disclaimer from "@/components/common/Disclaimer";
 import DrugPanel from "@/components/search/DrugPanel";
 import ResultPanel from "@/components/result/ResultPanel";
+import MobileTabBar from "@/components/layout/MobileTabBar";
 import type {
   SelectedDrug,
   DrugSearchResult,
@@ -29,6 +30,7 @@ export default function MainView() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<"search" | "result">("search");
 
   /* ── localStorage 기록 갱신 ── */
   const refreshHistory = useCallback(() => {
@@ -101,6 +103,19 @@ export default function MainView() {
     performQueryRef.current(drugs);
   }, []); // 마운트 1회만 실행
 
+  /* ── 모바일 탭 자동 전환 ──────────────────────────────────────
+   *  조회 시작(loading) → 결과 탭으로 즉시 이동해 스켈레톤 표시
+   *  결과 초기화(idle)  → 검색 탭으로 복귀
+   *  PC(768px+)는 탭 없으므로 무시 */
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return;
+    if (resultState.status === "idle") {
+      setActiveTab("search");
+    } else {
+      setActiveTab("result");
+    }
+  }, [resultState.status]);
+
   /* ── URL/결과 초기화 헬퍼 ── */
   const clearResult = useCallback(() => {
     setResultState({ status: "idle" });
@@ -156,12 +171,22 @@ export default function MainView() {
     [clearResult, performQuery]
   );
 
+  // 결과 탭 인디케이터용 위험 여부 계산
+  const hasDanger =
+    (resultState.status === "single" && resultState.data.prohibitions.length > 0) ||
+    (resultState.status === "multi" && !resultState.data.isSafe);
+
   return (
     <div className={styles.root}>
       <Header />
 
       <div className={styles.content}>
-        <div className={styles.panels}>
+        <div
+          className={[
+            styles.panels,
+            activeTab === "result" ? styles.resultActive : "",
+          ].join(" ")}
+        >
           {/* 좌측: 검색 패널 */}
           <div className={styles.leftPanel}>
             <DrugPanel
@@ -184,6 +209,15 @@ export default function MainView() {
       </div>
 
       <Disclaimer />
+
+      {/* 모바일 하단 탭바 (PC에서는 CSS로 숨김) */}
+      <MobileTabBar
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        selectedDrugCount={selectedDrugs.length}
+        resultStatus={resultState.status}
+        hasDanger={hasDanger}
+      />
     </div>
   );
 }

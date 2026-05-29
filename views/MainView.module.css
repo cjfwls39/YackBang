@@ -53,13 +53,41 @@
   }
 }
 
-/* ── 모바일 패널 높이 ── */
+/* ── 모바일: 탭 기반 단일 패널 표시 ── */
 @media (max-width: 767px) {
+  /* 탭바 높이만큼 하단 패딩 확보 */
+  .content {
+    padding-bottom: var(--yb-tabbar-height);
+  }
+
+  /* 기본: 검색 패널만 표시 */
   .leftPanel {
-    border-bottom: 1px solid var(--yb-border);
+    display: flex;
+    flex-direction: column;
+    min-height: calc(
+      100dvh
+      - var(--yb-header-height)
+      - var(--yb-disclaimer-height)
+      - var(--yb-tabbar-height)
+    );
   }
 
   .rightPanel {
-    min-height: 400px;
+    display: none;
+  }
+
+  /* 결과 탭 활성 시: 검색 패널 숨기고 결과 패널 표시 */
+  .resultActive .leftPanel {
+    display: none;
+  }
+
+  .resultActive .rightPanel {
+    display: block;
+    min-height: calc(
+      100dvh
+      - var(--yb-header-height)
+      - var(--yb-disclaimer-height)
+      - var(--yb-tabbar-height)
+    );
   }
 }
