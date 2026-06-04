@@ -65,6 +65,162 @@
 
 ---
 
+## 시스템 아키텍처
+
+```mermaid
+flowchart LR
+    subgraph Client["클라이언트"]
+        UI["Next.js App<br/>(React 19)"]
+    end
+
+    subgraph Vercel["Vercel (서버리스)"]
+        direction TB
+        MW["보안 레이어<br/>Rate Limit · 입력검증 · CSP"]
+        API1["GET /api/drugs<br/>약품 검색"]
+        API2["POST /api/interaction<br/>병용금기 조회"]
+        MW --> API1
+        MW --> API2
+    end
+
+    subgraph Data["데이터"]
+        DB[("Supabase<br/>PostgreSQL + pg_trgm")]
+        EXT["식약처 DUR API<br/>(e약은요 · 허가정보)"]
+    end
+
+    UI -->|"fetch"| MW
+    API1 -->|"읽기 (anon + RLS)"| DB
+    API2 -->|"읽기 (anon + RLS)"| DB
+    API2 -.->|"보조 정보 (5s 타임아웃)"| EXT
+
+    SYNC["월별 데이터 동기화<br/>(로컬 스크립트)"] -.->|"쓰기 (service_role)"| DB
+```
+
+- **프로덕션 앱**은 `anon` key + RLS로 **읽기 전용** 접근만 수행
+- **데이터 적재/갱신**은 로컬에서 `service_role` key로만 실행 (Vercel에 키 노출 없음)
+- 외부 식약처 API는 e약은요·허가정보 등 **보조 정보**에만 사용 (실패해도 핵심 결과에 영향 없음)
+
+---
+
+## 데이터베이스
+
+식약처 공공데이터(허가정보·DUR)를 수집·정제해 Supabase에 적재합니다.
+모든 테이블에 **RLS(Row Level Security) + SELECT 전용 정책**을 적용해 프로덕션 앱은 읽기만 가능합니다.
+
+### ERD (논리 모델)
+
+```mermaid
+erDiagram
+    drug_products {
+        text item_seq PK "품목일련번호"
+        text item_name "제품명"
+        text item_ingr_name "성분명"
+        text entp_name "제조사"
+        text spclty_pblc "전문/일반 구분"
+    }
+    dur_prohibition {
+        int id PK
+        text ingr_code "성분코드"
+        text ingr_kor_name "성분명"
+        text mixture_ingr_code "금기 상대 성분코드"
+        text mixture_ingr_kor_name "금기 상대 성분명"
+        text prohbt_content "금기 내용"
+    }
+    dur_pregnancy {
+        int id PK
+        text ingr_code "성분코드"
+        text ingr_kor_name "성분명"
+        text prohbt_content "임부금기 내용"
+    }
+    dur_caution {
+        int id PK
+        text ingr_name "성분명"
+        text class_name "분류"
+        text note "주의 내용"
+    }
+
+    drug_products ||--o{ dur_prohibition : "ingr_code 로 성분 매칭"
+    drug_products ||--o{ dur_pregnancy : "ingr_code 로 성분 매칭"
+    drug_products ||--o{ dur_caution : "ingr_name 으로 성분 매칭"
+```
+
+> `dur_caution`은 노인·연령·용량·기간·서방정분할 등 **5개 주의 테이블의 공통 구조**를 요약 표기한 것입니다.
+
+### 테이블 목록
+
+| 테이블 | 내용 |
+|---|---|
+| `drug_products` | 의약품 기본 정보 (품목명, 성분, 제조사, 이미지 URL) |
+| `dur_prohibition` | 병용금기 성분 쌍 |
+| `dur_pregnancy` | 임부금기 |
+| `dur_elderly_caution` | 노인 주의 |
+| `dur_age_restriction` | 특정 연령대 금기 |
+| `dur_dosage_caution` | 용량 주의 |
+| `dur_duration_caution` | 투여기간 주의 |
+| `dur_tablet_split_caution` | 서방정 분할 금지 |
+| `dur_efficacy_duplication` | 효능군 중복 |
+
+---
+
+## API 명세
+
+### `GET /api/drugs` — 약품 검색
+
+| 항목 | 값 |
+|---|---|
+| Query | `q` (검색어, 2~100자) |
+| Rate Limit | IP당 60회/분, 전체 300회/분 |
+| 응답 캐시 | `s-maxage=3600` |
+
+```jsonc
+// GET /api/drugs?q=타이레놀
+// 200 OK
+[
+  {
+    "itemSeq": "196000050",
+    "itemName": "타이레놀정500밀리그람",
+    "entpName": "한국얀센",
+    "itemIngrName": "Acetaminophen",
+    "spcltPblc": "일반의약품",
+    "pillImageUrl": "https://..."
+  }
+]
+```
+
+### `POST /api/interaction` — 병용금기 조회
+
+| 항목 | 값 |
+|---|---|
+| Body | `{ mode: "single" \| "multi", drugs: SelectedDrug[] }` |
+| 제약 | `drugs` 1~5개, 필드 길이 제한 |
+| Rate Limit | IP당 5회/분, 전체 50회/분 |
+| maxDuration | 10초 |
+
+```jsonc
+// POST /api/interaction
+// Request
+{
+  "mode": "multi",
+  "drugs": [
+    { "itemSeq": "196000050", "itemName": "타이레놀정500밀리그람", "itemIngrName": "Acetaminophen" },
+    { "itemSeq": "...",       "itemName": "판콜에스내복액",       "itemIngrName": "..." }
+  ]
+}
+
+// Response (multi)
+{
+  "drugs": [ /* 입력 약 목록 */ ],
+  "dangerPairs": [ /* 병용금기 쌍 */ ],
+  "efficacyDuplicates": [ /* 효능군 중복 */ ],
+  "ingredientOverlaps": [ /* 성분 중복 */ ],
+  "labelWarnings": [ /* 허가정보 기반 경고 */ ],
+  "isSafe": false
+}
+```
+
+> `mode: "single"` 은 단일 약의 병용금기·임부금기·노인주의 등을 반환합니다.
+
+---
+
 ## 기술적 도전과 해결
 
 식약처 공공데이터 API를 활용하려 했지만, 공식 문서만으로는 실제 동작을 신뢰하기 어려웠습니다.
@@ -86,7 +242,39 @@
 
 처음엔 인메모리 분석에 강한 DuckDB를 검토했지만, 데이터 파일을 그대로 서버에 올리기에는 용량 부담이 컸습니다.
 
-→ **Supabase(PostgreSQL)로 일원화**하고, 검색은 `pg_trgm` 인덱스로 **50~150ms 안에 응답**하도록 만들어 누구나 빠르게 조회할 수 있게 했습니다.
+→ **Supabase(PostgreSQL)로 일원화**하고, 검색은 `pg_trgm` 인덱스로 최적화했습니다.
+
+### 4. 계열명으로 등록된 병용금기 누락
+
+DUR 데이터에는 `mixture_ingr_kor_name`이 "티아지드계"처럼 **계열명**으로 저장된 경우가 있어, 개별 성분명("히드로클로로티아지드")과 정확히 일치하지 않아 매칭이 누락됐습니다.
+
+→ 계열명에서 접미사(계/계열/약물 등)를 제거한 **stem을 추출해 성분명 포함 여부를 확인**하는 폴백 로직을 추가했습니다.
+
+---
+
+## 성능 최적화
+
+### 문제
+
+의약품 데이터가 수만 건 규모라, 인덱스 없이 `ILIKE '%검색어%'`로 부분 일치 검색을 하면
+**선행 와일드카드(`%...`)** 때문에 일반 B-tree 인덱스를 타지 못하고 풀스캔이 발생합니다.
+데이터가 늘수록 응답 시간이 선형으로 악화되는 구조입니다.
+
+### 해결
+
+PostgreSQL의 **`pg_trgm` (trigram) 확장**을 활성화하고 `item_name`에 GIN 인덱스를 적용했습니다.
+trigram 인덱스는 부분 문자열을 3글자 단위로 분해해 색인하므로, 선행 와일드카드 검색에서도 인덱스를 활용할 수 있습니다.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX idx_drug_products_name_trgm
+  ON drug_products USING gin (item_name gin_trgm_ops);
+```
+
+### 결과
+
+자동완성에 적합한 **50~150ms 수준의 응답 속도**를 확보했습니다.
+응답에 `s-maxage=3600` 캐시 헤더를 더해 반복 검색은 Vercel 엣지 캐시에서 즉시 응답합니다.
 
 ---
 
@@ -154,25 +342,6 @@ npm run dev
 # 프로덕션 빌드 확인
 npm run build && npm start
 ```
-
----
-
-## 데이터베이스 구조
-
-Supabase에 식약처 DUR 데이터를 수집·정제해 저장합니다.
-모든 테이블에 **RLS(Row Level Security) + SELECT 전용 정책** 적용 — 프로덕션 앱은 읽기만 가능합니다.
-
-| 테이블 | 내용 |
-|---|---|
-| `drug_products` | 의약품 기본 정보 (품목명, 성분, 제조사, 이미지 URL) |
-| `dur_prohibition` | 병용금기 성분 쌍 |
-| `dur_pregnancy` | 임부금기 |
-| `dur_elderly_caution` | 노인 주의 |
-| `dur_age_restriction` | 특정 연령대 금기 |
-| `dur_dosage_caution` | 용량 주의 |
-| `dur_duration_caution` | 투여기간 주의 |
-| `dur_tablet_split_caution` | 서방정 분할 금지 |
-| `dur_efficacy_duplication` | 효능군 중복 |
 
 ---
 
