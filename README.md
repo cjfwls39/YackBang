@@ -31,7 +31,7 @@
 ## 주요 기능
 
 ### 🔍 의약품 검색 & 병용금기 조회
-- 약품명 자동완성 검색 (Supabase `pg_trgm` 인덱스, 50~150ms 응답)
+- 약품명 자동완성 검색 — `pg_trgm` 인덱스로 부분 일치 검색 (DB 쿼리 1ms 미만, 체감 응답 50~150ms)
 - **단일 약 조회**: 병용금기 성분 목록, 임부금기, 노인 주의, 용량/기간 주의, 서방정 분할 금지
 - **병용 비교 (2~5개)**: 병용금기 쌍, 효능군 중복, 성분 중복, 허가정보 기반 상호작용 경고
 
@@ -176,12 +176,12 @@ erDiagram
 // 200 OK
 [
   {
-    "itemSeq": "196000050",
-    "itemName": "타이레놀정500밀리그람",
-    "entpName": "한국얀센",
+    "itemSeq": "202106092",
+    "itemName": "타이레놀정500밀리그람(아세트아미노펜)",
+    "entpName": "켄뷰코리아판매유한회사",
     "itemIngrName": "Acetaminophen",
     "spcltPblc": "일반의약품",
-    "pillImageUrl": "https://..."
+    "pillImageUrl": "https://nedrug.mfds.go.kr/pbp/cmn/itemImageDownload/..."
   }
 ]
 ```
@@ -201,17 +201,17 @@ erDiagram
 {
   "mode": "multi",
   "drugs": [
-    { "itemSeq": "196000050", "itemName": "타이레놀정500밀리그람", "itemIngrName": "Acetaminophen" },
-    { "itemSeq": "...",       "itemName": "판콜에스내복액",       "itemIngrName": "..." }
+    { "itemSeq": "202106092", "itemName": "타이레놀정500밀리그람(아세트아미노펜)", "itemIngrName": "Acetaminophen" },
+    { "itemSeq": "201802134", "itemName": "판콜아이콜드시럽", "itemIngrName": "Acetaminophen/DL-Methylephedrine Hydrochloride/..." }
   ]
 }
 
-// Response (multi)
+// Response (multi) — 두 약 모두 아세트아미노펜 함유 → 성분 중복 탐지
 {
   "drugs": [ /* 입력 약 목록 */ ],
   "dangerPairs": [ /* 병용금기 쌍 */ ],
   "efficacyDuplicates": [ /* 효능군 중복 */ ],
-  "ingredientOverlaps": [ /* 성분 중복 */ ],
+  "ingredientOverlaps": [ /* 성분 중복 (아세트아미노펜) */ ],
   "labelWarnings": [ /* 허가정보 기반 경고 */ ],
   "isSafe": false
 }
