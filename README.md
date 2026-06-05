@@ -16,6 +16,10 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)](https://tailwindcss.com)
 [![Vercel](https://img.shields.io/badge/배포-Vercel-black?logo=vercel)](https://yack-bang.vercel.app)
 
+> 📝 **이 저장소의 문서는 정확하고 일관된 정보 전달을 위해 AI 도구를 활용해 작성·정리되었습니다.**
+>
+> **단, 설계 판단과 구현 방향은 개발자가 직접 결정했습니다.**
+
 ---
 
 ## 목차
