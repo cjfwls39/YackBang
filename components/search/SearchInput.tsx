@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { DrugSearchResult } from "@/types/drug";
+import { getApiErrorMessage, NETWORK_ERROR_MESSAGE } from "@/lib/api-error";
 import styles from "./SearchInput.module.css";
 
 interface SearchInputProps {
@@ -29,6 +30,7 @@ export default function SearchInput({
   const [results, setResults] = useState<DrugSearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<DropdownPos>({ top: 0, left: 0, width: 0 });
 
@@ -80,20 +82,29 @@ export default function SearchInput({
   const fetchResults = useCallback(async (q: string): Promise<DrugSearchResult[]> => {
     if (q.trim().length < 1) {
       setResults([]);
+      setError(null);
       setIsOpen(false);
       return [];
     }
     setIsLoading(true);
+    setError(null);
     updatePos();
     try {
       const res = await fetch(`/api/drugs?q=${encodeURIComponent(q.trim())}`);
-      if (!res.ok) throw new Error("search failed");
+      if (!res.ok) {
+        setResults([]);
+        setError(await getApiErrorMessage(res));
+        setIsOpen(true);
+        return [];
+      }
       const data: DrugSearchResult[] = await res.json();
       setResults(data);
       if (data.length > 0) setIsOpen(true);
       return data;
-    } catch {
+    } catch (err) {
       setResults([]);
+      setError(err instanceof TypeError ? NETWORK_ERROR_MESSAGE : "검색 중 오류가 발생했어요.");
+      setIsOpen(true);
       return [];
     } finally {
       setIsLoading(false);
@@ -138,6 +149,7 @@ export default function SearchInput({
   function handleClear() {
     setQuery("");
     setResults([]);
+    setError(null);
     setIsOpen(false);
     inputRef.current?.focus();
   }
@@ -158,10 +170,12 @@ export default function SearchInput({
           role="listbox"
         >
           {isLoading && <p className={styles.loadingMsg}>검색 중...</p>}
-          {!isLoading && results.length === 0 && (
+          {!isLoading && error && <p className={styles.emptyMsg}>{error}</p>}
+          {!isLoading && !error && results.length === 0 && (
             <p className={styles.emptyMsg}>&ldquo;{query}&rdquo; 검색 결과가 없어요.</p>
           )}
           {!isLoading &&
+            !error &&
             results.map((drug) => {
               const imgSrc = drug.pillImageUrl || drug.boxImageUrl;
               return (

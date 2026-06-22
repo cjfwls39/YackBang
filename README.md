@@ -375,6 +375,12 @@ npm run dev
 npm run build && npm start
 ```
 
+> **로컬 실행은 본인 소유의 Supabase 프로젝트 키가 필요합니다.** 위 배포 링크는 별도 설정 없이 바로 확인할 수 있으니,
+> 코드만 보시려면 로컬 실행 없이 배포 링크 + 코드만 보시는 걸 권장합니다.
+>
+> 참고로 이 키는 보안 강화를 위해 `service_role` → `anon key` + RLS(읽기 전용)로 전환된 적이 있습니다([보안 아키텍처](#보안-아키텍처) 참고).
+> 전환 이전에 `.env.local`을 만들어 `SUPABASE_SERVICE_ROLE_KEY`만 넣어둔 상태라면 `SUPABASE_ANON_KEY`를 추가로 발급받아야 합니다.
+
 ---
 
 ## 추후 개발 예정

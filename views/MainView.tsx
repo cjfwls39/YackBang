@@ -16,6 +16,7 @@ import type {
 import { encodeDrugsForUrl, decodeDrugsFromUrl } from "@/lib/url-state";
 import { addToHistory, getHistory } from "@/lib/history";
 import type { HistoryEntry } from "@/lib/history";
+import { getApiErrorMessage, NETWORK_ERROR_MESSAGE } from "@/lib/api-error";
 import styles from "./MainView.module.css";
 
 type ResultState =
@@ -56,7 +57,10 @@ export default function MainView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, drugs }),
       });
-      if (!res.ok) throw new Error("query failed");
+      if (!res.ok) {
+        setResultState({ status: "error", message: await getApiErrorMessage(res) });
+        return;
+      }
 
       if (mode === "single") {
         const data: SingleDrugResult = await res.json();
@@ -75,10 +79,10 @@ export default function MainView() {
       // localStorage 기록 저장
       addToHistory(drugs);
       setHistory(getHistory());
-    } catch {
+    } catch (err) {
       setResultState({
         status: "error",
-        message: "조회 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.",
+        message: err instanceof TypeError ? NETWORK_ERROR_MESSAGE : "조회 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.",
       });
     } finally {
       setIsQuerying(false);
