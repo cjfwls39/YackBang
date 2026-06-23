@@ -19,8 +19,12 @@
  *
  * 소요 시간: 약 10~20분 (전체 기준, API rate limit 대기 포함)
  *
- * ⚠ DUR 테이블(2~9)은 truncate → insert 방식으로 동기화됩니다.
- *   동기화 중 잠깐 데이터가 비어 있을 수 있으므로 트래픽이 적은 시간대에 실행하세요.
+ * DUR 테이블(2~9)은 배치 태그 방식으로 동기화됩니다:
+ *   1. 모든 신규 행에 이번 실행의 sync_batch_id(=스크립트 시작 시각)를 태그해 INSERT
+ *   2. 적재가 끝난 뒤, 이전 배치(sync_batch_id가 다른 행)만 청크 단위로 DELETE
+ * TRUNCATE 후 재적재하던 예전 방식은 그 사이 테이블이 비어 "병용금기 없음"으로
+ * 오판정될 수 있었음 — 이 방식은 적재 도중 행이 추가되기만 하므로 그 위험이 없음.
+ * (자세한 내용은 README "기술적 도전과 해결" 5번 참고)
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -45,6 +49,10 @@ const SVC_DUR         = "DURPrdlstInfoService03";        // DUR 전체
 const ROWS_PER_PAGE   = 500;   // 식약처 API 최대 (500 권장 — 100이면 호출 수 5배로 rate limit 위험)
 const DELAY_MS        = 150;   // 페이지 간 대기 (rate limit 방지)
 const UPSERT_CHUNK    = 500;   // 한 번에 upsert할 행 수
+const CLEANUP_CHUNK   = 2000;  // 이전 배치 정리 시 한 번에 삭제할 행 수
+
+/** 이번 스크립트 실행의 동기화 배치 식별자 — DUR 테이블 신규 행 태깅 + 이전 배치 정리에 사용 */
+const SYNC_BATCH_ID = Date.now();
 
 // ── Supabase 클라이언트 ───────────────────────────────────────────
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -88,29 +96,37 @@ interface SyncOptions<T> {
   service:   string;
   endpoint:  string;
   table:     string;
-  /** true: 동기화 전 기존 데이터 전체 삭제 (DUR 테이블용) */
-  truncate?: boolean;
+  /** true: 적재 완료 후 이전 배치(sync_batch_id가 다른 행) 삭제 (DUR 테이블용) */
+  cleanupStaleBatch?: boolean;
   /** 지정 시 upsert, 미지정 시 insert */
   upsertOn?: string;
   mapper:    (item: Record<string, string>) => T;
 }
 
+/** 이전 배치(sync_batch_id가 다른 행)를 청크 단위로 삭제 — 0건이 될 때까지 반복 */
+async function cleanupStaleRows(table: string): Promise<{ deleted: number; complete: boolean }> {
+  let totalDeleted = 0;
+  while (true) {
+    const { data, error } = await sb.rpc("delete_stale_dur_batch", {
+      tbl: table,
+      keep_batch: SYNC_BATCH_ID,
+      batch_size: CLEANUP_CHUNK,
+    });
+    if (error) {
+      console.error(`\n  ⚠ 이전 배치 정리 실패 (${table}): ${error.message}`);
+      return { deleted: totalDeleted, complete: false };
+    }
+    const deleted = (data as number) ?? 0;
+    totalDeleted += deleted;
+    if (deleted < CLEANUP_CHUNK) break; // 한 번에 다 못 지웠을 가능성 있으니 가득 찬 경우만 계속
+  }
+  return { deleted: totalDeleted, complete: true };
+}
+
 async function syncTable<T extends Record<string, unknown>>(opts: SyncOptions<T>) {
-  const { label, service, endpoint, table, truncate, upsertOn, mapper } = opts;
+  const { label, service, endpoint, table, cleanupStaleBatch, upsertOn, mapper } = opts;
 
   process.stdout.write(`\n  [${label}] `);
-
-  // DUR 테이블: TRUNCATE (DELETE는 대용량에서 statement timeout 발생)
-  if (truncate) {
-    const { error } = await sb.rpc("truncate_dur_table", { tbl: table });
-    if (error) {
-      console.error(`\n  ❌ TRUNCATE 실패 (${table}): ${error.message}`);
-      console.error("     Supabase SQL Editor에서 수동으로 실행하세요:");
-      console.error(`     TRUNCATE ${table} RESTART IDENTITY;`);
-      return;   // 중복 삽입 방지를 위해 이 테이블은 건너뜀
-    }
-    process.stdout.write("초기화 완료 → ");
-  }
 
   let page   = 1;
   let total  = 0;
@@ -142,9 +158,13 @@ async function syncTable<T extends Record<string, unknown>>(opts: SyncOptions<T>
     if (!items.length) break;
 
     const rows = items.map(mapper);
+    // DUR 테이블: 이번 배치 식별자 태깅 — 적재 완료 후 이전 배치만 골라 삭제하는 데 사용
+    const taggedRows = cleanupStaleBatch
+      ? rows.map((r) => ({ ...r, sync_batch_id: SYNC_BATCH_ID }))
+      : rows;
 
     // 대량 삽입 시 chunk 단위로 나눠서 upsert/insert
-    for (const batch of chunk(rows, UPSERT_CHUNK)) {
+    for (const batch of chunk(taggedRows, UPSERT_CHUNK)) {
       const { error } = upsertOn
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ? await sb.from(table).upsert(batch as any[], { onConflict: upsertOn })
@@ -163,6 +183,21 @@ async function syncTable<T extends Record<string, unknown>>(opts: SyncOptions<T>
 
   const status = errors > 0 ? `⚠ 오류 ${errors}건 포함` : "✓";
   console.log(`\n  ${status} ${synced.toLocaleString()}건 완료`);
+
+  // 이전 배치 정리는 이번 적재가 오류 없이 끝났을 때만 실행.
+  // 일부 chunk가 실패한 상태에서 정리하면, 그 chunk에 해당하던 이전 데이터까지
+  // 같이 지워져 새 데이터도 옛 데이터도 없는 진짜 빈 구간이 생길 수 있음.
+  if (cleanupStaleBatch && synced > 0 && errors === 0) {
+    const { deleted, complete } = await cleanupStaleRows(table);
+    if (complete) {
+      if (deleted > 0) console.log(`  🧹 이전 배치 ${deleted.toLocaleString()}건 정리`);
+    } else {
+      console.error(
+        `  ⚠ 이전 배치 ${deleted.toLocaleString()}건만 정리됨 — 일부 남아있을 수 있음. ` +
+        `node scripts/sync-all.ts 재실행 또는 SQL Editor에서 delete_stale_dur_batch('${table}', ${SYNC_BATCH_ID}) 반복 호출 필요`
+      );
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -221,7 +256,7 @@ async function syncDrugProducts() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 2~9. DUR 테이블 — truncate + insert
+// 2~9. DUR 테이블 — 배치 태그 insert + 이전 배치 정리
 // ════════════════════════════════════════════════════════════════
 
 async function syncDurProhibition() {
@@ -231,7 +266,7 @@ async function syncDurProhibition() {
     service:  SVC_DUR,
     endpoint: "getUsjntTabooInfoList03",
     table:    "dur_prohibition",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       dur_seq:               r.DUR_SEQ              ?? null,
       ingr_code:             r.INGR_CODE             ?? null,
@@ -257,7 +292,7 @@ async function syncDurPregnancy() {
     service:  SVC_DUR,
     endpoint: "getPwnmTabooInfoList03",
     table:    "dur_pregnancy",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_code:         r.INGR_CODE         ?? null,
       ingr_kor_name:     r.INGR_KOR_NAME     ?? "",
@@ -278,7 +313,7 @@ async function syncDurEfficacyDuplication() {
     service:  SVC_DUR,
     endpoint: "getEfcyDplctInfoList03",
     table:    "dur_efficacy_duplication",
-    truncate: true,
+    cleanupStaleBatch: true,
     // API에 따라 INGR_NAME 또는 INGR_KOR_NAME 중 하나만 있을 수 있어 양쪽 모두 시도
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
@@ -301,7 +336,7 @@ async function syncDurElderlyCaution() {
     service:  SVC_DUR,
     endpoint: "getOdsnAtentInfoList03",
     table:    "dur_elderly_caution",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
       ingr_code:         r.INGR_CODE         ?? null,
@@ -324,7 +359,7 @@ async function syncDurAgeRestriction() {
     service:  SVC_DUR,
     endpoint: "getSpcifyAgrdeTabooInfoList03",
     table:    "dur_age_restriction",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
       ingr_code:         r.INGR_CODE         ?? null,
@@ -346,7 +381,7 @@ async function syncDurDosageCaution() {
     service:  SVC_DUR,
     endpoint: "getCpctyAtentInfoList03",
     table:    "dur_dosage_caution",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
       ingr_code:         r.INGR_CODE         ?? null,
@@ -369,7 +404,7 @@ async function syncDurDurationCaution() {
     service:  SVC_DUR,
     endpoint: "getMdctnPdAtentInfoList03",
     table:    "dur_duration_caution",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
       ingr_code:         r.INGR_CODE         ?? null,
@@ -392,7 +427,7 @@ async function syncDurTabletSplitCaution() {
     service:  SVC_DUR,
     endpoint: "getSeobangjeongPartitnAtentInfoList03",
     table:    "dur_tablet_split_caution",
-    truncate: true,
+    cleanupStaleBatch: true,
     mapper:   (r) => ({
       ingr_name:         r.INGR_NAME         ?? r.INGR_KOR_NAME ?? "",
       ingr_code:         r.INGR_CODE         ?? null,

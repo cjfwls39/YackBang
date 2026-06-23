@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS dur_prohibition (
   mixture_ingr_eng_name  TEXT,
   mixture_item_name      TEXT,
   prohbt_content         TEXT,                   -- 금기 이유 원문 (전문용어)
-  notification_date      TEXT
+  notification_date      TEXT,
+  sync_batch_id          BIGINT                  -- 동기화 배치 식별자 (지연 삭제용, 기술적 도전 5번 참고)
 );
 
 -- ── 임부금기 ─────────────────────────────────────────────────────
@@ -69,7 +70,8 @@ CREATE TABLE IF NOT EXISTS dur_pregnancy (
   item_name         TEXT,
   entp_name         TEXT,
   prohbt_content    TEXT,
-  notification_date TEXT
+  notification_date TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 영문↔한글 성분명 매핑 ─────────────────────────────────────────
@@ -94,7 +96,8 @@ CREATE TABLE IF NOT EXISTS dur_efficacy_duplication (
   item_name         TEXT,
   entp_name         TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 노인주의 ─────────────────────────────────────────────────────
@@ -110,7 +113,8 @@ CREATE TABLE IF NOT EXISTS dur_elderly_caution (
   entp_name         TEXT,
   note              TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 특정연령대금기 ───────────────────────────────────────────────
@@ -125,7 +129,8 @@ CREATE TABLE IF NOT EXISTS dur_age_restriction (
   item_name         TEXT,
   entp_name         TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 용량주의 ─────────────────────────────────────────────────────
@@ -141,7 +146,8 @@ CREATE TABLE IF NOT EXISTS dur_dosage_caution (
   entp_name         TEXT,
   note              TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 투여기간주의 ─────────────────────────────────────────────────
@@ -157,7 +163,8 @@ CREATE TABLE IF NOT EXISTS dur_duration_caution (
   entp_name         TEXT,
   note              TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
 
 -- ── 서방정분할주의 ───────────────────────────────────────────────
@@ -173,8 +180,24 @@ CREATE TABLE IF NOT EXISTS dur_tablet_split_caution (
   entp_name         TEXT,
   note              TEXT,
   notification_date TEXT,
-  change_date       TEXT
+  change_date       TEXT,
+  sync_batch_id     BIGINT
 );
+
+
+-- ============================================================
+-- 마이그레이션: 기존 DB에 sync_batch_id 컬럼 추가
+-- (CREATE TABLE IF NOT EXISTS는 이미 존재하는 테이블에 컬럼을 추가하지 않으므로 별도 실행)
+-- ============================================================
+
+ALTER TABLE dur_prohibition          ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_pregnancy            ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_efficacy_duplication ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_elderly_caution      ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_age_restriction      ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_dosage_caution       ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_duration_caution     ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
+ALTER TABLE dur_tablet_split_caution ADD COLUMN IF NOT EXISTS sync_batch_id BIGINT;
 
 
 -- ============================================================
@@ -234,18 +257,38 @@ CREATE INDEX IF NOT EXISTS idx_duration_ingr
 CREATE INDEX IF NOT EXISTS idx_tablet_split_ingr
   ON dur_tablet_split_caution (ingr_name);
 
+-- sync_batch_id (동기화 후 이전 배치 정리 시 조회용 — 기술적 도전 5번 참고)
+CREATE INDEX IF NOT EXISTS idx_prohibition_sync_batch          ON dur_prohibition          (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_pregnancy_sync_batch             ON dur_pregnancy            (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_efficacy_dup_sync_batch          ON dur_efficacy_duplication (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_elderly_sync_batch                ON dur_elderly_caution      (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_age_restrict_sync_batch          ON dur_age_restriction      (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_dosage_sync_batch                 ON dur_dosage_caution       (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_duration_sync_batch               ON dur_duration_caution     (sync_batch_id);
+CREATE INDEX IF NOT EXISTS idx_tablet_split_sync_batch          ON dur_tablet_split_caution (sync_batch_id);
+
 
 -- ============================================================
--- 동기화 스크립트용 TRUNCATE RPC
--- DELETE ... WHERE id != 0 는 대용량 테이블에서 statement timeout 발생.
--- TRUNCATE는 즉시 완료되므로 이 함수를 통해 호출한다.
+-- 동기화 스크립트용 배치 정리 RPC
+--
+-- 예전엔 TRUNCATE 후 재적재했는데, TRUNCATE와 재적재가 각각 별도 트랜잭션이라
+-- 그 사이 조회가 들어오면 테이블이 비어 "병용금기 없음(안전)"으로 오판정될 수 있었음.
+-- (자세한 내용은 README "기술적 도전과 해결" 5번 참고)
+--
+-- 이제는 TRUNCATE 없이 새 행에 sync_batch_id를 태그해 INSERT만 하고,
+-- 적재가 끝난 뒤 이전 배치(sync_batch_id가 다른 행)만 이 RPC로 청크 단위 삭제.
+-- DELETE ... WHERE id != 0 전체를 한 번에 실행하면 대용량에서 statement timeout이
+-- 나므로, batch_size만큼만 지워 호출 측(sync-all.ts)이 0건이 될 때까지 반복 호출한다.
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION truncate_dur_table(tbl TEXT)
-RETURNS void
+CREATE OR REPLACE FUNCTION delete_stale_dur_batch(tbl TEXT, keep_batch BIGINT, batch_size INT DEFAULT 2000)
+RETURNS INT
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET statement_timeout = '120s'  -- 인덱스를 못 타는 예외 상황에서도 타임아웃으로 끊기지 않도록 방어
 AS $$
+DECLARE
+  deleted_count INT;
 BEGIN
   IF tbl NOT IN (
     'dur_prohibition',
@@ -259,9 +302,28 @@ BEGIN
   ) THEN
     RAISE EXCEPTION '허가되지 않은 테이블: %', tbl;
   END IF;
-  EXECUTE format('TRUNCATE TABLE %I RESTART IDENTITY', tbl);
+
+  -- "sync_batch_id IS DISTINCT FROM $1"는 btree 인덱스를 못 타서 매번 전체 테이블을
+  -- 풀스캔함(80만 건 테이블에서 statement timeout 발생 확인). 대신 IS NULL / < / >로
+  -- 풀어써서 인덱스(idx_..._sync_batch)를 통한 비트맵 스캔이 가능하도록 함.
+  EXECUTE format(
+    'DELETE FROM %I WHERE id IN (
+       SELECT id FROM %I
+       WHERE sync_batch_id IS NULL
+          OR sync_batch_id < $1
+          OR sync_batch_id > $1
+       LIMIT $2
+     )',
+    tbl, tbl
+  ) USING keep_batch, batch_size;
+
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
 END;
 $$;
+
+-- 더 이상 사용하지 않는 이전 RPC 제거 (기존 DB에 남아있다면 정리)
+DROP FUNCTION IF EXISTS truncate_dur_table(TEXT);
 
 
 -- ============================================================
