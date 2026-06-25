@@ -16,6 +16,10 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss)](https://tailwindcss.com)
 [![Vercel](https://img.shields.io/badge/배포-Vercel-black?logo=vercel)](https://yack-bang.vercel.app)
 
+| 의약품 데이터 | DUR 데이터 | 검색 성능 |
+|---|---|---|
+| 43,236건 | 8종 · 약 4.3만 건 (최대 테이블 80만 건) | `pg_trgm` 적용 후 **95배 개선** |
+
 > 📝 **이 저장소의 문서는 정확하고 일관된 정보 전달을 위해 AI 도구를 활용해 작성·정리되었습니다.**
 >
 > **단, 설계 판단과 구현 방향은 개발자가 직접 결정했습니다.**
@@ -159,6 +163,12 @@ DUR 테이블(병용금기 등 8종, 약 4.3만 건)은 매달 `TRUNCATE` 후 �
 → **배치 태그 방식**을 채택했습니다. 적재 도중에는 신규 행이 추가되기만 할 뿐 기존 행을 지우지 않으니 조회는 항상 (적어도 지난달 기준으로는) 유효한 데이터를 봅니다. `querySingle`이 이미 `mixture_ingr_kor_name` 기준으로 중복을 제거하고 있어, 과도기에 신/구 배치가 잠깐 섞여도 결과에 중복이 노출되지 않습니다.
 
 **실제로 돌려서 검증**했고, 그 과정에서 두 번째 문제를 발견했습니다. 가장 큰 `dur_prohibition`(80만 건)만 "이전 배치 정리" 단계에서 `canceling statement due to statement timeout`이 났습니다. 원인은 정리 쿼리의 `sync_batch_id IS DISTINCT FROM $1` 조건 — 이 조건은 btree 인덱스를 타지 못해 80만 건을 매 청크마다 풀스캔하고 있었습니다(1,620건 남은 마지막 청크조차 똑같이 타임아웃 — 남은 행 수와 무관하게 무조건 전체 스캔이라는 뜻). `sync_batch_id IS NULL OR sync_batch_id < $1 OR sync_batch_id > $1`로 풀어써서 인덱스를 통한 스캔이 가능하도록 고치고, 함수 레벨 `statement_timeout`도 안전장치로 늘려서 재배포 후 같은 청크가 즉시 처리되는 것까지 확인했습니다. 다른 7개 DUR 테이블은 전부 1.6만 건 이하라 풀스캔에도 문제가 없었고, 가장 큰 테이블에서만 드러난 문제였습니다.
+
+### 6. "병용금기 없음"을 "안전"이라고 표현하지 않은 이유
+
+DUR 데이터는 식약처가 **공식 등재한 병용금기만** 담고 있어, 등재되지 않은 임상적 상호작용까지 보장하지는 않습니다. 의약품 안전 정보를 다루는 서비스에서 이 한계를 숨기고 "안전합니다"라고 단정하면, 사용자가 실제로 존재하는 위험을 놓치고도 안심해버릴 수 있습니다.
+
+→ 결과 화면 문구부터 이 한계를 반영했습니다. 병용금기가 없을 때도 "안전해요" 대신 **"식약처 DUR 등록 기준으로 금기가 확인되지 않았어요"**처럼 판단 근거를 명시하고, 그 결과 화면에는 "DUR 미등재 상호작용이 있을 수 있어요"라는 별도 안내 박스를 항상 노출합니다([`ResultPanel.tsx`](components/result/ResultPanel.tsx)). 면책 고지를 약관처럼 하단에 한 줄 넣는 것과, 결과를 보여주는 그 화면·그 문장 단위로 데이터의 한계를 매번 드러내는 것은 다른 문제라고 판단했습니다.
 
 ---
 
@@ -350,18 +360,22 @@ erDiagram
 }
 ```
 
-> `mode: "single"` 은 단일 약의 병용금기·임부금기·노인주의 등을 반환합니다.
+> `mode: "single"`은 단일 약의 병용금기·임부금기·노인주의 등을 반환합니다.
 
 ---
 
 ## 보안 아키텍처
 
+Vercel 서버리스 환경은 인스턴스마다 메모리가 독립적이라, IP별 Rate Limiting만으로는 분산된 인스턴스 전체의 트래픽을 막지 못합니다. 그래서 IP별 제한 위에 **전체 요청 합산 기준의 글로벌 회로 차단기**를 한 겹 더 두었습니다 — 비정상 트래픽이 감지되면 일정 시간 동안 해당 엔드포인트 전체를 차단해, 개별 IP 우회와 무관하게 과금·장애를 막는 구조입니다([`lib/rate-limit.ts`](lib/rate-limit.ts)).
+
+두 엔드포인트의 한도도 비용에 맞춰 다르게 잡았습니다. `/api/drugs`는 인덱스 조회 한 번으로 끝나 IP당 분당 60회까지 허용하지만, `/api/interaction`은 여러 DUR 테이블 조인에 외부 API 호출(5초 타임아웃)까지 얹혀 있어 IP당 분당 5회로 더 빡빡하게 제한합니다.
+
 ```
 요청 진입
   ↓
-글로벌 회로 차단기 (분당 전체 50회 초과 → 503)
+글로벌 회로 차단기 (엔드포인트 전체 분당 한도 초과 → 503)
   ↓
-IP별 Rate Limiting (분당 5회 초과 → 429)
+IP별 Rate Limiting (drugs 60회/분 · interaction 5회/분 초과 → 429)
   ↓
 입력 검증 (배열 크기 1~5, 필드 길이 제한)
   ↓
@@ -370,11 +384,15 @@ Supabase SDK 파라미터 쿼리 (SQL 인젝션 방지)
 외부 API fetch 타임아웃 5초 + maxDuration 10초
 ```
 
+그 외 기본적인 웹 보안 헤더도 적용했습니다.
+
 - **XSS**: React 자동 이스케이프 + Content Security Policy 헤더
 - **클릭재킹**: `X-Frame-Options: DENY`
 - **MIME 스니핑**: `X-Content-Type-Options: nosniff`
 - **레퍼러 노출**: `Referrer-Policy: strict-origin-when-cross-origin`
 - **DB 접근**: Supabase anon key + RLS(SELECT only) — 프로덕션은 읽기 전용
+
+> 현재 Rate Limiter는 인메모리 방식이라 인스턴스가 재시작되면 카운터가 리셋됩니다. 포트폴리오 규모에서는 충분하다고 판단했고, 트래픽이 늘면 [Upstash Redis로 교체](#추후-개발-예정)할 계획입니다.
 
 ---
 
