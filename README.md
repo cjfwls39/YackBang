@@ -52,6 +52,34 @@
 
 ## 주요 기능
 
+<table>
+<tr>
+<td width="33%"><img src="public/screenshots/main-idle.png" alt="메인 화면" /></td>
+<td width="33%"><img src="public/screenshots/search-results.png" alt="약품 검색 결과" /></td>
+<td width="33%"><img src="public/screenshots/interaction-result.png" alt="병용금기 조회 결과" /></td>
+</tr>
+<tr>
+<td align="center">메인 화면 — 위험 조합 가이드</td>
+<td align="center">약품명 검색 — 자동완성</td>
+<td align="center">병용 비교 결과 — 효능 중복 경고</td>
+</tr>
+</table>
+
+> 좁은 화면(왼쪽 검색 · 오른쪽 결과 2단 레이아웃)과 데스크톱 와이드 화면 모두 같은 컴포넌트로 반응형 대응합니다.
+
+<table>
+<tr>
+<td width="33%"><img src="public/screenshots/main-idle-pc.png" alt="메인 화면 (PC)" /></td>
+<td width="33%"><img src="public/screenshots/search-results-pc.png" alt="약품 검색 결과 (PC)" /></td>
+<td width="33%"><img src="public/screenshots/interaction-result-pc.png" alt="병용 비교 결과 (PC)" /></td>
+</tr>
+<tr>
+<td align="center">PC 레이아웃 — 위험 조합 가이드</td>
+<td align="center">PC 레이아웃 — 검색 결과</td>
+<td align="center">PC 레이아웃 — 2개 약 병용 비교</td>
+</tr>
+</table>
+
 ### 🔍 의약품 검색 & 병용금기 조회
 - 약품명 자동완성 검색 — `pg_trgm` 인덱스로 부분 일치 검색 (DB 쿼리 1ms 미만, 체감 응답 50~150ms)
 - **단일 약 조회**: 병용금기 성분 목록, 임부금기, 노인 주의, 용량/기간 주의, 서방정 분할 금지
